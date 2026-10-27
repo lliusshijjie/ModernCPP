@@ -1,0 +1,12 @@
+# 编译产物
+*.exe
+*.o
+*.obj
+run
+*.gcm
+
+# Claude Code 本机状态（定时任务调度等）
+.claude/
+
+# 个人练习草稿
+a.cpp

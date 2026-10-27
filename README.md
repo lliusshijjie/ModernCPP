@@ -1,0 +1,143 @@
+# 现代 C++ 每日一课
+
+系统学习 **C++14 及以上**标准为语言和标准库带来的新语法与新机制。
+
+- **节奏**：每天一节，共 **60 节**；2026-10-19 开课，预计 **2026-12-17** 收官
+- **机制**：每天晚上 **19:00**，Claude Code 的链式一次性定时任务自动生成新的一课
+  （准点触发、无 7 天过期；需要当天保持 Claude Code 开启——若某天错过，
+  任务会在下次打开 Claude Code 时补跑当日课程并自动接上后续日程）
+
+## 目录结构
+
+按标准版本分顶层文件夹，每课一个独立子文件夹（`编号_中文主题/`），
+内含同名 `.md` 讲解 + 同编号 ASCII 命名的独立 `.cpp`：
+
+```
+README.md                                  —— 课程大纲与进度（本文件）
+CPP14/                                     —— 第一部分（第 1–10 课）
+  01_泛型lambda与初始化捕获/
+    01_泛型lambda与初始化捕获.md           —— 讲解
+    01_generic_lambda.cpp                  —— 独立可运行示例
+  ...
+CPP17/                                     —— 第二部分（第 11–30 课）
+CPP20/                                     —— 第三部分（第 31–48 课）
+CPP23/                                     —— 第四部分（第 49–60 课）
+```
+
+## 每课固定结构
+
+讲解（Markdown）与代码（独立 `.cpp`）分离。讲解固定三段式：
+
+1. **一、底层原理** —— 编译器视角：这个语法生成什么代码、解决什么旧问题、与旧写法的本质对比
+2. **二、具体语法** —— 语法形式、规则细则、能做与不能做
+3. **三、实际应用与最佳实践** —— 真实工程场景 + 最佳实践清单
+4. 末尾附 **常见陷阱 / 练习 / 参考**
+
+`.cpp` 示例按 `① 原理验证 → ② 语法演示 → ③ 应用实战` 三段组织，
+每行输出附预测注释，输出保持 ASCII，规避 Windows 控制台编码问题。
+
+> 说明：个别 C++20/23 特性（modules、stacktrace 等）需要额外编译选项或
+> g++ 15 尚未完整支持，相应课程会给出替代验证方式并如实标注。
+
+## 如何学习
+
+1. 读 Markdown 讲解，理解每项特性的**动机**（它解决了什么旧问题）
+2. 打开配套 `.cpp`，先**自己预测输出**，再编译运行对照
+3. 完成课末练习，有疑问随时问 Claude
+
+## 编译运行
+
+```bash
+# g++ / MinGW-w64 / MSYS2（本机已装 g++ 15.2.0；路径含中文记得加引号）
+g++ -std=c++14 -Wall -Wextra "CPP14/01_泛型lambda与初始化捕获/01_generic_lambda.cpp" -o run && ./run
+
+# clang++
+clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lambda.cpp" -o run && ./run
+```
+
+每课会标注所需的最低标准版本（`c++14` / `c++17` / `c++20` / `c++23`），
+用 `-std=` 切换。本机 g++ 15.2.0 支持到 C++23（部分 C++26 特性可用 `-std=c++26`）。
+
+## 课程大纲与进度
+
+状态图例：⬜ 未学 ｜ ✅ 已完成。课件编号即文件夹编号。
+
+### CPP14/（第 1–10 课）
+
+| # | 主题 | 状态 | 日期 |
+|---|------|------|------|
+| 01 | 泛型 lambda 与初始化捕获 | ✅ | 2026-10-19 |
+| 02 | constexpr 增强：编译期计算的解放 | ✅ | 2026-10-20 |
+| 03 | 变量模板与 std::integer_sequence | ✅ | 2026-10-21 |
+| 04 | std::make_unique 与智能指针最佳实践 | ✅ | 2026-10-22 |
+| 05 | std::exchange、std::quoted 等实用小工具 | ✅ | 2026-10-23 |
+| 06 | std::shared_timed_mutex 与读写锁 | ✅ | 2026-10-24 |
+| 07 | decltype(auto) 与返回类型推导 | ✅ | 2026-10-25 |
+| 08 | chrono 用户自定义字面量与时间单位 | ✅ | 2026-10-26 |
+| 09 | 语言小件合辑：二进制字面量、数字分隔符、[[deprecated]] | ✅ | 2026-10-27 |
+| 10 | std::tuple 按类型取元素 get<T> | ⬜ | |
+
+### CPP17/（第 11–30 课）
+
+| # | 主题 | 状态 | 日期 |
+|---|------|------|------|
+| 11 | 结构化绑定 structured bindings | ⬜ | |
+| 12 | if 与 switch 的初始化语句 | ⬜ | |
+| 13 | if constexpr：编译期分支 | ⬜ | |
+| 14 | 折叠表达式 fold expressions | ⬜ | |
+| 15 | 类模板参数推导 CTAD | ⬜ | |
+| 16 | std::optional | ⬜ | |
+| 17 | std::variant 与 std::visit | ⬜ | |
+| 18 | std::any | ⬜ | |
+| 19 | 综合：optional / variant / any 三者取舍 | ⬜ | |
+| 20 | std::string_view | ⬜ | |
+| 21 | std::filesystem 文件系统库 | ⬜ | |
+| 22 | 属性增强：[[nodiscard]]、[[maybe_unused]]、[[fallthrough]] | ⬜ | |
+| 23 | std::scoped_lock 与 shared_mutex | ⬜ | |
+| 24 | std::charconv：高性能数值转换 | ⬜ | |
+| 25 | 并行算法与执行策略 | ⬜ | |
+| 26 | inline 变量与 ODR 的现代化 | ⬜ | |
+| 27 | 强制拷贝消除与值类别 | ⬜ | |
+| 28 | 求值顺序固定（P0145） | ⬜ | |
+| 29 | std::invoke、std::apply 与统一调用 | ⬜ | |
+| 30 | 标准库修补合辑：std::byte、map 节点句柄与 try_emplace | ⬜ | |
+
+### CPP20/（第 31–48 课）
+
+| # | 主题 | 状态 | 日期 |
+|---|------|------|------|
+| 31 | Concepts 概念 | ⬜ | |
+| 32 | Ranges 入门：新的算法与管道 | ⬜ | |
+| 33 | Ranges 视图组合与惰性求值 | ⬜ | |
+| 34 | Ranges 视图速查与组合实战 | ⬜ | |
+| 35 | 三路比较 <=> 与统一比较 | ⬜ | |
+| 36 | std::format 格式化 | ⬜ | |
+| 37 | std::span | ⬜ | |
+| 38 | std::jthread 与 std::stop_token | ⬜ | |
+| 39 | 协程 coroutine 入门 | ⬜ | |
+| 40 | consteval、constinit 与 std::source_location | ⬜ | |
+| 41 | 模板 lambda、指定初始化器与 [[likely]] | ⬜ | |
+| 42 | <bit> 家族：popcount、bit_cast、endian | ⬜ | |
+| 43 | std::erase / std::erase_if 统一擦除 | ⬜ | |
+| 44 | constexpr string/vector：编译期容器 | ⬜ | |
+| 45 | std::atomic 的等待与通知 | ⬜ | |
+| 46 | char8_t 与 Unicode 基础 | ⬜ | |
+| 47 | Modules 模块入门 | ⬜ | |
+| 48 | chrono 日历与时区 | ⬜ | |
+
+### CPP23/（第 49–60 课）
+
+| # | 主题 | 状态 | 日期 |
+|---|------|------|------|
+| 49 | std::print / std::println | ⬜ | |
+| 50 | std::expected：错误处理新范式 | ⬜ | |
+| 51 | 综合：异常 / 错误码 / expected 的取舍 | ⬜ | |
+| 52 | deducing this：显式对象形参 | ⬜ | |
+| 53 | ranges::to 与容器构造 | ⬜ | |
+| 54 | std::generator 与惰性序列 | ⬜ | |
+| 55 | std::mdspan 多维数组视图 | ⬜ | |
+| 56 | 标准库拾遗：string::contains、move_only_function、stacktrace | ⬜ | |
+| 57 | std::flat_map / flat_set | ⬜ | |
+| 58 | 语言小件合辑：if consteval、static operator()、多维下标 | ⬜ | |
+| 59 | std::format 的 C++23 增强：范围与指针格式化 | ⬜ | |
+| 60 | C++26 前瞻与课程总结（pack indexing、contracts、reflection） | ⬜ | |
