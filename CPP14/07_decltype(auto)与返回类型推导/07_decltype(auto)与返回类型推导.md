@@ -2,12 +2,14 @@
 
 > 所需标准：C++14 ｜ 讲解：本文件 ｜ 独立代码：`07_decltype_auto.cpp`
 
+> 补充阅读：[07A · 转发返回值与代理对象](../补充知识点/07_补充A_转发返回值与代理对象/07_补充A_转发返回值与代理对象.md)。
+
 ## 一、底层原理
 
 ### 1.1 auto 的返回类型推导用的是"按值模板形参"规则
 
 C++14 允许函数用 `auto` 推导返回类型，但规则**不是**"表达式的类型"，
-而是按值模板形参的模板实参推导：**引用被剥掉、cv 被剥掉、数组退化为指针**。
+而是按值模板形参的模板实参推导：**引用与顶层 cv 被剥掉、数组退化为指针**。
 
 | return 表达式 | `auto` 推导 | `decltype(auto)` 推导 |
 |---|---|---|
@@ -28,7 +30,7 @@ C++14 允许函数用 `auto` 推导返回类型，但规则**不是**"表达式�
 | `decltype(g)`（**实体**：未加括号的 id 表达式） | 声明类型 | `int` |
 | `decltype((g))`（**表达式**） | 按值类别：左值→`T&`，纯右值→`T`，将亡值→`T&&` | `int&` |
 
-`decltype(auto)` 走的是**表达式**那套规则。于是：
+`decltype(auto)` 对初始化器或 return 表达式应用上述两套 decltype 规则。于是：
 `return g;` 推出 `int`，`return (g);` 推出 `int&`——**一个括号改变了返回类型**。
 
 ### 1.3 括号 + 局部变量 = 悬空引用
@@ -87,19 +89,19 @@ struct At {
 
 ### 3.3 最佳实践清单
 
-1. **转发/包装层一律 `decltype(auto)`**；auto 会静默改变值/引用语义
+1. 转发/包装层需要保留表达式类型时可用 `decltype(auto)`，同时检查引用、代理和生命周期
 2. 普通业务函数返回新值 → 用 `auto` 就好，别滥用 decltype(auto)
 3. 用 `static_assert` + `std::is_same` 当推导结果的单元测试（示例全程在用）
 4. 括号不是装饰：`return (x)` 与 `return x` 类型可能不同——统一风格，少用括号
-5. C++14 起 wrapper 不要再手写尾置 `-> decltype(f(x))`，直接 decltype(auto)
+5. 返回表达式需要参与 SFINAE 筛选时，尾置 `-> decltype(f(x))` 仍有用途，见补充 07A
 
 ## 常见陷阱
 
 1. `return (local);` → 悬空引用（-Wall 有警告，但要靠 code review 兜底）
 2. 以为 auto 只是"少打类型"——它在按值推导，语义可能已变
 3. `decltype(auto) x = {1};` 直接编译错误（decltype 对初始化列表无规则）
-4. `vector<bool>::operator[]` 返回**代理对象**（纯右值），decltype(auto) 推出
-   的是代理的 `&&` 而非 `bool&`——期待别落空
+4. 非 const `vector<bool>::operator[]` 返回**代理对象**（纯右值），decltype(auto) 推出
+   的是代理对象类型本身，而不是 `bool&` 或代理类型的 `&&`；需要独立布尔快照时显式转为 bool
 5. 多条 return 的表达式形式不一致（一条带括号、一条不带）→ 推导冲突编译错误
 
 ## 完整示例
@@ -119,7 +121,7 @@ g++ -std=c++14 -Wall -Wextra "CPP14/07_decltype(auto)与返回类型推导/07_de
 3. 实验 `vector<bool>`：`decltype(auto) b = vb[0];` 推出什么类型？
    用 `static_assert` + 第 03 课的 `type_name` 打印确认。
 4. 把第 04 课的 `make_widget` 工厂改成返回 `decltype(auto)` 会发生什么？
-   思考后动手验证（提示：返回类型从值变成了什么？是否还安全？）。
+   逐一检查实际 return 表达式，判断类型是否变化；再与 `return (local)` 的情况对比。
 
 ## 参考
 

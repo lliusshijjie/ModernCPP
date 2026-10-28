@@ -44,11 +44,11 @@ int main() {
                   "两条 lambda 类型不同");
     std::cout << add2(0.5, 0.25) << '\n';                      // 0.75
 
-    // 验证 3：捕获几个变量，闭包就多大 —— 空闭包 sizeof==1（零开销）
+    // 验证 3：观察当前实现的闭包大小；标准不保证大小恰为 1 或捕获值大小。
     int extra = 42;
     auto with_capture = [extra](auto x) { return x + extra; };
     std::cout << sizeof(decltype(add)) << ' '
-              << sizeof(decltype(with_capture)) << '\n';       // 1 4
+              << sizeof(decltype(with_capture)) << '\n';       // 常见实现为 1 4，具体值由实现决定
     std::cout << with_capture(8) << '\n';                      // 50
 
     // 验证 4：无捕获 lambda 可隐式转为函数指针（闭包退化为普通函数）
@@ -61,7 +61,7 @@ int main() {
     std::cout << add(1.5, 2) << '\n';                          // 3.5
     std::cout << add(std::string("mo"), "dern") << '\n';       // modern
 
-    // 2.2 返回类型推导放松：多条 return 自动推导（C++11 仅允许一条）
+    // 2.2 多条 return 自动推导；该调整也作为缺陷修正追溯到 C++11。
     auto clamp01 = [](double x) {
         if (x < 0.0) return 0.0;
         if (x > 1.0) return 1.0;
@@ -77,7 +77,7 @@ int main() {
     };
     std::cout << running_sum(10) << ' ' << running_sum(5) << '\n';  // 10 15
 
-    // 2.4 初始化捕获 + std::move = 移动捕获（unique_ptr 拷不动，C++11 无解）
+    // 2.4 初始化捕获 + std::move = 移动捕获，直接把 unique_ptr 所有权移入闭包。
     auto payload = std::make_unique<std::string>("C++14");
     auto loader  = [p = std::move(payload)] {
         return "loaded: " + *p;
@@ -107,7 +107,8 @@ int main() {
     };
     std::cout << task() << '\n';                               // process: big-blob
 
-    //     若必须存进任务队列（std::function 要求可拷贝），所有权改用 shared_ptr：
+    //     本示例队列使用 std::function；用 shared_ptr 演示可拷贝闭包。
+    //     独占任务也可以选择支持移动的包装类型，例如 std::packaged_task。
     std::vector<std::function<std::string()>> tasks;
     auto shared = std::make_shared<std::string>("shared-blob");
     tasks.push_back([buf = shared] { return "process: " + *buf; });
