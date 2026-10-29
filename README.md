@@ -117,7 +117,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 
 | # | 主题 | 状态 | 日期 |
 |---|------|------|------|
-| 11 | 结构化绑定 structured bindings | ⬜ | |
+| 11 | 结构化绑定 structured bindings | ✅ | 2026-10-29 |
 | 12 | if 与 switch 的初始化语句 | ⬜ | |
 | 13 | if constexpr：编译期分支 | ⬜ | |
 | 14 | 折叠表达式 fold expressions | ⬜ | |
