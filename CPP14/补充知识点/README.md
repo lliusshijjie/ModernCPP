@@ -13,6 +13,7 @@
 | 08A | 第 08 课后 | [字符串与复数字面量](08_补充A_字符串与复数字面量/08_补充A_字符串与复数字面量.md) | [08a_string_complex_literals.cpp](08_补充A_字符串与复数字面量/08a_string_complex_literals.cpp) |
 
 每节的编译命令均从 `ModernCPP` 目录执行，路径已包含 `CPP14/补充知识点/`。
-原第 10 课仍由现有定时任务按原计划生成。
+第 10 课已完成；学完后可进入
+[SignalWorkbench 综合练习项目](../Practice/SignalWorkbench/README.md)，串联全部主线课与这些补充内容。
 
 返回 [现代 C++ 课程总目录](../../README.md)。

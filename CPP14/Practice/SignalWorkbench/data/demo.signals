@@ -1,0 +1,4 @@
+# "name" count sample0 sample1 ...
+"steady" 4 2 2 2 2
+"alternating" 4 1 -1 1 -1
+"pulse \"A\"" 4 1 0 -1 0
