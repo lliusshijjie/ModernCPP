@@ -74,6 +74,11 @@ CPP23/                                     —— 第四部分（第 49–60 课
 示例输入、CMake 构建入口和自检程序。两个练习的区别见
 [Practice 目录](CPP14/Practice/README.md)。
 
+学完 C++17 第 11～13 课后，可阅读
+[`CPP17/practice/`](CPP17/practice/README.md)：
+回合制战斗结算器用一个不超过 200 行的独立文件，串联结构化绑定、if / switch 初始化语句和
+`if constexpr`，演示物理与魔法攻击、命中、暴击、法力消耗及击败判定，并提供内置自检。
+
 ## 编译运行
 
 ```bash
