@@ -88,7 +88,7 @@ int main() {
     static_assert(fact<5>() == 120, "");
     std::cout << fact<10>() << '\n';          // 3628800
 
-    // 2.2 与 init 语句叠加：init 变量要参与常量条件，自身必须 constexpr
+    // 2.2 与 init 语句叠加：init 变量的值必须能用于常量表达式（如 constexpr int）。
     //    （写成普通 int n 的话，"n > 4" 不是常量表达式 —— 编译错误）
     if constexpr (constexpr int n = 2 + 3; n > 4) {
         std::cout << "compile-time known " << n << '\n';   // compile-time known 5

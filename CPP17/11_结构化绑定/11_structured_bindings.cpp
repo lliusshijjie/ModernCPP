@@ -25,7 +25,7 @@ int main() {
     struct Point { int x; int y; };
     Point p{10, 20};
     auto& [px, py] = p;
-    // 注意标准细节：decltype(绑定名) 给成员的"声明类型"（struct 情形去引用）
+    // 注意标准细节：decltype(绑定名) 依据成员声明类型；本例两个成员均声明为 int。
     // —— 虽然语义上 px 仍是 p.x 的别名（下一行就是证据）
     static_assert(std::is_same_v<decltype(px), int>, "struct 情形：声明类型");
     px += 1;

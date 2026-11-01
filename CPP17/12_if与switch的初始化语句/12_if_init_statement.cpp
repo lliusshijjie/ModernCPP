@@ -22,7 +22,7 @@ int main() {
     if (auto it = m.find("cpp"); it != m.end()) {
         std::cout << it->second << '\n';                 // 2011
     } else {
-        std::cout << "missing " << it->first << '\n';    // 旧写法在 else 里用不了 it
+        std::cout << "cpp missing " << (it == m.end()) << '\n'; // else 可见 it，但 end() 不能解引用
     }
 
     // 验证 2：init 恰好求值一次

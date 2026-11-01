@@ -74,9 +74,9 @@ else {...}
 
 1. **丢弃分支仍需语法正确**：token 层面的错误照样报错；
    非依赖构造（与模板参数无关的代码）也会被检查
-2. 以为条件可以用运行期值——必须常量表达式；与 init 语句叠加时，
-   **init 变量要参与条件就必须声明 `constexpr`**（普通变量的值进不了
-   常量表达式，示例曾在此编译失败）
+2. 条件必须满足常量表达式要求。init 变量参与条件时，其值也必须能用于常量表达式；
+   `constexpr int n = 5` 可以，常量初始化的 `const int n = 5` 也可以，
+   不能简单认为只有写了 `constexpr` 关键字才合法。
 3. 非模板函数里用 if constexpr 求心安——两个分支都编译，该错还是错
 4. 分支返回类型不同时，若某个实例真的走到两个分支（不可能，但要防
    误设计成运行期混合）——记住判定发生在实例化期
@@ -106,3 +106,8 @@ g++ -std=c++17 -Wall -Wextra "CPP17/13_if_constexpr编译期分支/13_if_constex
 
 - 提案 P0292R2: If statements with constant expression
 - cppreference: [if constexpr](https://zh.cppreference.com/w/cpp/language/if)
+
+## 学习衔接
+
+继续阅读 [补充 13A：void_t 检测与编译期分支边界](../补充知识点/13_补充A_void_t检测与编译期分支边界/13_补充A_void_t检测与编译期分支边界.md)，
+区分能力检测、函数体选择与 SFINAE 候选筛选，再进入第 14 课。

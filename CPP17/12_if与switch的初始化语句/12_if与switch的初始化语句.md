@@ -104,3 +104,8 @@ g++ -std=c++17 -Wall -Wextra "CPP17/12_if与switch的初始化语句/12_if_init_
 
 - 提案 P0305R1: Selection statements with initializer
 - cppreference: [if 语句（含初始化）](https://zh.cppreference.com/w/cpp/language/if)
+
+## 学习衔接
+
+继续阅读 [补充 12A：初始化语句与 RAII 生命周期](../补充知识点/12_补充A_初始化语句与RAII生命周期/12_补充A_初始化语句与RAII生命周期.md)，
+重点观察 else、异常和 switch 退出时的析构时机，再进入第 13 课。
