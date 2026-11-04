@@ -137,7 +137,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 14A | [折叠表达式的顺序与短路](CPP17/补充知识点/14_补充A_折叠表达式的顺序与短路/14_补充A_折叠表达式的顺序与短路.md) | 📘 | 2026-11-01 |
 | 15 | 类模板参数推导 CTAD | ✅ | 2026-11-02 |
 | 16 | std::optional | ✅ | 2026-11-03 |
-| 17 | std::variant 与 std::visit | ⬜ | |
+| 17 | std::variant 与 std::visit | ✅ | 2026-11-04 |
 | 18 | std::any | ⬜ | |
 | 19 | 综合：optional / variant / any 三者取舍 | ⬜ | |
 | 20 | std::string_view | ⬜ | |
