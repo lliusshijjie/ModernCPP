@@ -32,7 +32,9 @@ CPP14/                                     —— 第一部分（第 1–10 课�
 CPP17/                                     —— 第二部分（第 11–30 课）
   补充知识点/                               —— C++17 补充课目录与独立示例
     README.md                              —— 当前补充 11A、12A、13A、14A
-  practice/                                —— 第 11～13 课战斗结算练习
+  practice/                                —— 两份独立单文件综合练习
+    battle_simulator.cpp                   —— 第 11～13 课：回合制战斗结算
+    vending_machine.cpp                    —— 第 11～17 课：迷你自动售货机
 CPP20/                                     —— 第三部分（第 31–48 课）
 CPP23/                                     —— 第四部分（第 49–60 课）
 ```
@@ -83,6 +85,11 @@ CPP23/                                     —— 第四部分（第 49–60 课
 [`CPP17/practice/`](CPP17/practice/README.md)：
 回合制战斗结算器用一个不超过 200 行的独立文件，串联结构化绑定、if / switch 初始化语句和
 `if constexpr`，演示物理与魔法攻击、命中、暴击、法力消耗及击败判定，并提供内置自检。
+
+学完 C++17 第 11～17 课后，继续阅读
+[`CPP17/practice/vending_machine.cpp`](CPP17/practice/vending_machine.cpp)：
+单文件迷你自动售货机把 7 个知识点用于指令校验与分发、商品查找、日志和库存展示。
+完整程序不超过 200 行，课程对应表与编译方式见 [练习目录](CPP17/practice/README.md)。
 
 ## 编译运行
 
