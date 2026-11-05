@@ -146,7 +146,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 16 | std::optional | ✅ | 2026-11-03 |
 | 17 | std::variant 与 std::visit | ✅ | 2026-11-04 |
 | 18 | [std::any](CPP17/18_std_any/18_std_any.md) | ✅ | 2026-11-05 |
-| 19 | 综合：optional / variant / any 三者取舍 | ⬜ | |
+| 19 | 综合：optional / variant / any 三者取舍 | ✅ | 2026-11-05 |
 | 20 | std::string_view | ⬜ | |
 | 21 | std::filesystem 文件系统库 | ⬜ | |
 | 22 | 属性增强：[[nodiscard]]、[[maybe_unused]]、[[fallthrough]] | ⬜ | |
