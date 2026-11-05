@@ -35,9 +35,10 @@ std::pair<T1, T2> __guide(const T1&, const T2&);   // pair(x, y) -> pair<T1, T2>
 `lock_guard` 更极端：构造函数里根本没有可推 T 的实参，只能手写
 `lock_guard(mutex_type&) -> lock_guard<mutex_type>`。
 
-### 1.3 显式指引优先于隐式指引
+### 1.3 指引如何参与重载决议
 
-两者同时候选时，显式指引胜出。这也是库修正推导结果的手段。
+编译器先按重载规则比较实参匹配。前面的比较规则无法分出胜负时，
+才使用显式推导指引优先于构造函数生成的候选这一规则。
 
 ## 二、具体语法
 
@@ -54,7 +55,7 @@ std::lock_guard lg(m);      // lock_guard<mutex>
 - CTAD 要求**完全不写**模板实参——`std::vector<> v{1}` 在 C++17 是错的
   （C++20 起才允许部分显式）
 - 大括号列表里类型打架（`{1, 2.5}`）→ 推导歧义编译错，这是保护不是麻烦
-- 无构造函数的聚合体（裸 struct）C++17 还不能 CTAD——那是 C++20 的能力
+- C++17 可以为聚合类写显式推导指引。C++20 增加了由聚合元素生成的推导候选。
 - 拷贝推导：初始化器是同一模板的实例时直接沿用其参数
 
 ## 三、实际应用与最佳实践
@@ -81,7 +82,7 @@ std::lock_guard lg(m);      // lock_guard<mutex>
 
 1. **混型大括号推导失败**：`std::vector v{1, 2.5}` 歧义编译错——
    这是有意的；真要存 double 就统一实参类型
-2. 以为聚合体（无构造的 struct）也能 CTAD——C++17 不行，C++20 才行
+2. 在 C++17 中省略聚合类的模板实参时，先确认有适用的推导指引，见补充 15A。
 3. 零参构造推不出任何东西：`std::vector v;` 不是 CTAD，是默认构造
    （当然，没有模板参数的 vector 也写不出来）——区分"默认构造"与"推导"
 4. 自定义指引签名与构造函数不匹配 → 候选直接落选，错误信息指向
@@ -102,8 +103,8 @@ g++ -std=c++17 -Wall -Wextra "CPP17/15_类模板参数推导CTAD/15_ctad.cpp" -o
 1. 用 `static_assert` 验证 `std::tuple t(1, 2.5, 'c')` 的完整类型。
 2. 给第 04 课的 `Widget` 包一层类模板 `Box<T>`，让 `Box b{42}` 自动推导，
    再故意写 `Box b{42, 3.14}` 观察歧义报错。
-3. 为 `Box` 写显式指引 `Box(T, U) -> Box<T>`，验证 `Box b{1, 2}` 现在推导为
-   `Box<int>`（显式指引优先）。
+3. 为只含一个成员 `T value` 的聚合类 `Box<T>` 添加 `Box(T, U) -> Box<T>`。
+   用 `Box b{1, 2}` 验证推导得到的类型仍需接受实际的初始化实参。
 4. 把第 12 课示例里的 `std::pair<int, std::string>` 显式声明改为 CTAD 风格。
 
 ## 参考
@@ -111,3 +112,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/15_类模板参数推导CTAD/15_ctad.cpp" -o
 - 提案 P0091R3 / P0067R5: CTAD
 - cppreference: [类模板推导](https://zh.cppreference.com/w/cpp/language/class_template_argument_deduction)
 - cppreference: [推导指引](https://zh.cppreference.com/w/cpp/language/class_template_argument_deduction#.E6.8E.A8.E5.AF.BC.E6.8C.87.E5.BC.95)
+
+## 学习衔接
+
+继续阅读 [补充 15A · CTAD 推导与初始化](../补充知识点/15_补充A_CTAD推导与初始化/15_补充A_CTAD推导与初始化.md)。

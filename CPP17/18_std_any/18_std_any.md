@@ -98,3 +98,7 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic -pedantic-errors CPP17/18_std_any/18_std
 
 - [C++17 工作草案 N4659 · `[any]`](https://timsong-cpp.github.io/cppwp/n4659/any)
 - [WG21 P0220R1 · 将 Library Fundamentals TS 的组件纳入 C++17](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0220r1.html)
+
+## 学习衔接
+
+继续阅读 [补充 18A · any 的类型处理器注册](../补充知识点/18_补充A_any的类型处理器注册/18_补充A_any的类型处理器注册.md)。

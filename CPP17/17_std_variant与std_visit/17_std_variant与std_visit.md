@@ -23,12 +23,11 @@ C 的 `union` 有两大原罪：**标签靠人维护**（记错了就是 UB）�
 
 ### 1.2 std::visit：variant 的模式匹配
 
-`visit(f, v)` 的机制：编译期读出 v 当前备选的下标，把 f **按每个备选类型
-实例化一遍**，运行期按真实下标跳到对应实例——本质是一张函数指针表的
-跳转，无 RTTI、无异常、开销 O(1)。
-
-关键约束：**f 必须能接受 variant 的每一个备选**——少一个编译错误。
-这正是"处理必须穷尽所有可能"的编译期保证，模式匹配的安全性的来源。
+`visit(f, v)` 在编译期检查访问器对各备选的调用是否合法，在运行期根据当前下标传入活动值。
+C++17 要求各可能调用具有相同的返回类型和值类别。隐式转换和泛型兜底也可以满足可调用性要求。
+单个 variant 的分派时间不随备选数增长，具体分派结构由实现决定。
+如果 variant 处于 `valueless_by_exception()` 状态，访问会抛出 `std::bad_variant_access`。
+参见 [C++17 草案 N4659 的访问规则](https://timsong-cpp.github.io/cppwp/n4659/variant.visit)。
 
 ### 1.3 overloaded 惯用法：三课知识的合体
 
@@ -120,3 +119,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/17_std_variant与std_visit/17_variant_visit.
 - 提案 N4218 / P0088: variant 系列
 - cppreference: [std::variant](https://zh.cppreference.com/w/cpp/utility/variant)
 - cppreference: [std::visit](https://zh.cppreference.com/w/cpp/utility/variant/visit)
+
+## 学习衔接
+
+继续阅读 [补充 17A · 多 variant 访问与状态转移](../补充知识点/17_补充A_多variant访问与状态转移/17_补充A_多variant访问与状态转移.md)。

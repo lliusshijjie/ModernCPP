@@ -117,3 +117,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/19_optional_variant_any三者取舍/19_optio
 - cppreference: [std::any](https://zh.cppreference.com/w/cpp/utility/any)
 - C++ Core Guidelines C.183 / TV.5（类型安全与联合体）
 - 第 16/17/18 课——本课是它们的三合一复盘
+
+## 学习衔接
+
+继续阅读 [补充 19A · 缺失值与错误的分层建模](../补充知识点/19_补充A_缺失值与错误的分层建模/19_补充A_缺失值与错误的分层建模.md)。

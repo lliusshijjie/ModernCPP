@@ -103,4 +103,8 @@ g++ -std=c++17 -Wall -Wextra "CPP17/16_std_optional/16_optional.cpp" -o run && .
 
 - 提案 N3672 / P0603 等 optional 系列
 - cppreference: [std::optional](https://zh.cppreference.com/w/cpp/utility/optional)
+
+## 学习衔接
+
+继续阅读 [补充 16A · optional 惰性兜底与值语义](../补充知识点/16_补充A_optional惰性兜底与值语义/16_补充A_optional惰性兜底与值语义.md)。
 - 《Effective Modern C++》无直接条目；C++ Core Guidelines E.13 / F.21 相关

@@ -31,7 +31,7 @@ CPP14/                                     —— 第一部分（第 1–10 课�
   ...
 CPP17/                                     —— 第二部分（第 11–30 课）
   补充知识点/                               —— C++17 补充课目录与独立示例
-    README.md                              —— 当前补充 11A、12A、13A、14A
+    README.md                              —— 当前补充 11A～19A
   practice/                                —— 两份独立单文件综合练习
     battle_simulator.cpp                   —— 第 11～13 课：回合制战斗结算
     vending_machine.cpp                    —— 第 11～17 课：迷你自动售货机
@@ -143,10 +143,15 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 14 | 折叠表达式 fold expressions | ✅ | 2026-11-01 |
 | 14A | [折叠表达式的顺序与短路](CPP17/补充知识点/14_补充A_折叠表达式的顺序与短路/14_补充A_折叠表达式的顺序与短路.md) | 📘 | 2026-11-01 |
 | 15 | 类模板参数推导 CTAD | ✅ | 2026-11-02 |
+| 15A | [CTAD 推导与初始化](CPP17/补充知识点/15_补充A_CTAD推导与初始化/15_补充A_CTAD推导与初始化.md) | 📘 | 2026-11-06 |
 | 16 | std::optional | ✅ | 2026-11-03 |
+| 16A | [optional 惰性兜底与值语义](CPP17/补充知识点/16_补充A_optional惰性兜底与值语义/16_补充A_optional惰性兜底与值语义.md) | 📘 | 2026-11-06 |
 | 17 | std::variant 与 std::visit | ✅ | 2026-11-04 |
+| 17A | [多 variant 访问与状态转移](CPP17/补充知识点/17_补充A_多variant访问与状态转移/17_补充A_多variant访问与状态转移.md) | 📘 | 2026-11-06 |
 | 18 | [std::any](CPP17/18_std_any/18_std_any.md) | ✅ | 2026-11-05 |
+| 18A | [any 的类型处理器注册](CPP17/补充知识点/18_补充A_any的类型处理器注册/18_补充A_any的类型处理器注册.md) | 📘 | 2026-11-06 |
 | 19 | 综合：optional / variant / any 三者取舍 | ✅ | 2026-11-05 |
+| 19A | [缺失值与错误的分层建模](CPP17/补充知识点/19_补充A_缺失值与错误的分层建模/19_补充A_缺失值与错误的分层建模.md) | 📘 | 2026-11-06 |
 | 20 | std::string_view | ⬜ | |
 | 21 | std::filesystem 文件系统库 | ⬜ | |
 | 22 | 属性增强：[[nodiscard]]、[[maybe_unused]]、[[fallthrough]] | ⬜ | |
