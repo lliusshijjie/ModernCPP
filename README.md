@@ -152,7 +152,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 18A | [any 的类型处理器注册](CPP17/补充知识点/18_补充A_any的类型处理器注册/18_补充A_any的类型处理器注册.md) | 📘 | 2026-11-06 |
 | 19 | 综合：optional / variant / any 三者取舍 | ✅ | 2026-11-05 |
 | 19A | [缺失值与错误的分层建模](CPP17/补充知识点/19_补充A_缺失值与错误的分层建模/19_补充A_缺失值与错误的分层建模.md) | 📘 | 2026-11-06 |
-| 20 | std::string_view | ⬜ | |
+| 20 | std::string_view | ✅ | 2026-11-06 |
 | 21 | std::filesystem 文件系统库 | ⬜ | |
 | 22 | 属性增强：[[nodiscard]]、[[maybe_unused]]、[[fallthrough]] | ⬜ | |
 | 23 | std::scoped_lock 与 shared_mutex | ⬜ | |
