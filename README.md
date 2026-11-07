@@ -32,9 +32,10 @@ CPP14/                                     —— 第一部分（第 1–10 课�
 CPP17/                                     —— 第二部分（第 11–30 课）
   补充知识点/                               —— C++17 补充课目录与独立示例
     README.md                              —— 当前补充 11A～19A
-  practice/                                —— 两份独立单文件综合练习
+  practice/                                —— 三份独立单文件综合练习
     battle_simulator.cpp                   —— 第 11～13 课：回合制战斗结算
     vending_machine.cpp                    —— 第 11～17 课：迷你自动售货机
+    document_audit.cpp                     —— 第 11～20 课文档引用审计器
 CPP20/                                     —— 第三部分（第 31–48 课）
 CPP23/                                     —— 第四部分（第 49–60 课）
 ```
@@ -90,6 +91,9 @@ CPP23/                                     —— 第四部分（第 49–60 课
 [`CPP17/practice/vending_machine.cpp`](CPP17/practice/vending_machine.cpp)：
 单文件迷你自动售货机把 7 个知识点用于指令校验与分发、商品查找、日志和库存展示。
 完整程序不超过 200 行，课程对应表与编译方式见 [练习目录](CPP17/practice/README.md)。
+
+学完 C++17 第 11～20 课后，可运行文档引用审计器。它在约 300 行的单文件中实现两遍扫描、
+引用检查和报告生成，支持从标准输入读取自己的文档。[核心代码](CPP17/practice/document_audit.cpp) · [练习说明](CPP17/practice/README.md)
 
 ## 编译运行
 
@@ -153,7 +157,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 19 | 综合：optional / variant / any 三者取舍 | ✅ | 2026-11-05 |
 | 19A | [缺失值与错误的分层建模](CPP17/补充知识点/19_补充A_缺失值与错误的分层建模/19_补充A_缺失值与错误的分层建模.md) | 📘 | 2026-11-06 |
 | 20 | std::string_view | ✅ | 2026-11-06 |
-| 21 | std::filesystem 文件系统库 | ⬜ | |
+| 21 | std::filesystem 文件系统库 | ✅ | 2026-11-07 |
 | 22 | 属性增强：[[nodiscard]]、[[maybe_unused]]、[[fallthrough]] | ⬜ | |
 | 23 | std::scoped_lock 与 shared_mutex | ⬜ | |
 | 24 | std::charconv：高性能数值转换 | ⬜ | |
