@@ -40,7 +40,7 @@ int main() {
     std::cout << "===== 1. PRINCIPLES =====\n";
 
     // 验证 1：视图就是两个词（x64：指针 8 + 长度 8）
-    std::cout << sizeof(std::string_view) << '\n';               // 16
+    std::cout << sizeof(std::string_view) << '\n';               // 常见 64 位实现为 16，非标准固定值
 
     // 验证 2：借 string 的缓冲 —— data() 指向同一块内存，零拷贝
     std::string s = "modern-cpp";
@@ -48,12 +48,12 @@ int main() {
     std::cout << (sv.data() == s.data()) << ' '
               << sv.size() << '\n';                              // true 10
 
-    // 验证 3：view::substr 是 O(1)（同一块内存），string::substr 是 O(n)（新分配）
+    // 验证 3：view::substr 是 O(1)；string::substr 是 O(n)，复制字符，可能分配。
     auto head_v = sv.substr(0, 6);                               // 视图切片
     std::string head_s = s.substr(0, 6);                         // 拷贝切片
     std::cout << head_v << ' ' << head_s << ' '
               << (head_v.data() == s.data()) << ' '              // true：借的
-              << (head_s.data() != s.data()) << '\n';            // true：新分配
+              << (head_s.data() != s.data()) << '\n';            // true：独立存储，不证明发生堆分配
 
     std::cout << "===== 2. SYNTAX =====\n";
 

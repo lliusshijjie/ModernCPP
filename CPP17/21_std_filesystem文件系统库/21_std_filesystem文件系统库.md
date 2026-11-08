@@ -11,7 +11,7 @@
 | 类型 | 职责 | 接触磁盘吗 |
 |---|---|---|
 | `fs::path` | 路径的**词法**表示：分解、拼接、规范化 | **不**——纯字符串操作 |
-| `fs::directory_entry` | 路径 + **缓存的属性**（is_directory/file_size…） | 构造/refresh 时查一次 |
+| `fs::directory_entry` | 路径与可缓存的属性 | 构造、刷新或查询时可能访问；缓存细节依实现而定 |
 | `directory_iterator` / `recursive_directory_iterator` | 遍历目录 | 遍历时查 |
 
 理解这个库的钥匙：**分清"词法操作"与"查盘操作"**。
@@ -26,15 +26,16 @@ Windows 原生分隔符是 `\`，POSIX 是 `/`。path 内部记住来源格式�
 
 ### 1.3 错误处理双轨制：标准库最系统的 error_code 实践
 
-每个可能出错的 API 都有**成对重载**：
+许多文件系统操作提供异常版与错误码版重载，例如：
 
 | 版本 | 签名特征 | 错误去向 |
 |---|---|---|
 | 抛异常版 | `file_size(p)` | 抛 `fs::filesystem_error`（含 path1/path2） |
 | 错误码版 | `file_size(p, ec)`（noexcept） | 填 `std::error_code`，不抛 |
 
-交互式程序选异常版（错就停）；批量工具/遍历循环选错误码版（错也要跑完）。
-这套双轨制是第 50 课 `std::expected` 出现前，标准库错误处理的最高形态。
+错误属于异常情况时可以选异常版，缺失文件等属于常规分支时可以选错误码版。
+错误码重载不代表整个操作链都不抛异常：应查看具体函数的异常约定，
+并单独考虑路径构造、内存分配等操作。每次调用之后都应及时检查 ec。
 
 ## 二、具体语法
 
@@ -56,10 +57,10 @@ p.is_absolute();
 
 ```cpp
 fs::exists(p);  fs::is_directory(p);  fs::is_regular_file(p);
-fs::file_size(p);                       // 目录上调用：错误
+fs::file_size(p);                       // 普通文件返回字节数，其他类型结果由实现定义
 fs::create_directories("a/b/c");        // 递归建目录（mkdir -p）
 fs::copy(src, dst);  fs::rename(a, b);
-fs::remove(p);      fs::remove_all(p);  // 返回删除条目数
+fs::remove(p);      fs::remove_all(p);  // 分别返回 bool 与删除条目数
 fs::current_path();
 ```
 
@@ -89,8 +90,8 @@ for (const auto& e : fs::recursive_directory_iterator(dir)) {...}  // 递归下�
 1. 跨平台输出/持久化路径用 `generic_string()`，别裸 `<<` path
 2. 拼路径一律 `operator/`，禁止手写 `"/" + name`
 3. 遍历顺序不保证——先收集再排序，测试才可复现
-4. 循环里查属性用 `directory_entry` 缓存（`e.file_size()`），
-   别对每个 `e.path()` 重新 `fs::file_size`（多一次系统调用）
+4. 遍历时可优先使用 `directory_entry` 的属性查询，利用实现提供的缓存；
+   缓存范围和系统调用次数不能一概而论，缓存也不保证始终最新
 5. 错误处理按场景选轨：交互用异常、批量用 error_code；混用前想清楚
 6. 遍历中增删目录条目是自找麻烦——先收集名单，遍历完再改
 
@@ -98,7 +99,8 @@ for (const auto& e : fs::recursive_directory_iterator(dir)) {...}  // 递归下�
 
 1. `path` 没有 `operator+`（编译错，好事）；无分隔符连接要显式 `+=`——
    但 99% 的场景你要的是 `/`
-2. `file_size`/`is_regular_file` 用在目录上：抛错或值未定义——先判类型
+2. `is_regular_file` 对目录通常返回 false；`file_size` 对非普通文件结果由实现定义，
+   需要统计普通文件时先判断类型，再检查大小查询的错误
 3. Windows 下 `native()` 输出反斜杠，直接拼进跨平台协议就炸——统一 generic
 4. `remove_all` 的返回值包含**目录本身**（文件 + 目录都计数）——
    断言具体数字前先跑一遍确认
@@ -129,3 +131,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/21_std_filesystem文件系统库/21_filesyst
 
 - 提案 P0218 / C++17 [fs] 章（源出 boost::filesystem，2003 年实践）
 - cppreference: [std::filesystem](https://zh.cppreference.com/w/cpp/filesystem)
+
+## 补充阅读
+
+[21A · 路径规范化与分层错误处理](../补充知识点/21_补充A_路径规范化与分层错误处理/21_补充A_路径规范化与分层错误处理.md)：区分词法路径与实际文件身份，逐层检查查询和迭代错误。

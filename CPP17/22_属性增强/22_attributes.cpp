@@ -1,6 +1,6 @@
 // 第 22 课示例：属性增强 [[nodiscard]] / [[maybe_unused]] / [[fallthrough]]（C++17）
 //
-// 结构：① 原理验证 —— nodiscard 类的"丢弃即警告"；故意丢弃的调用只列不写
+// 结构：① 原理验证 —— nodiscard 类的丢弃诊断；故意丢弃的调用只列不写
 //       ② 语法演示 —— nodiscard 枚举 + switch 消费；maybe_unused 形参；fallthrough
 //       ③ 应用实战 —— nodiscard 结果类型 + 重试消费链
 //
@@ -11,7 +11,7 @@
 #include <iostream>
 #include <string>
 
-// ① nodiscard 类：所有返回 Check 的函数自动获得"丢弃即警告"
+// ① nodiscard 类：对按值返回 Check 且无意丢弃结果的调用，鼓励编译器诊断。
 struct [[nodiscard]] Check {
     bool ok;
 };
@@ -47,7 +47,7 @@ int tier(char c) {
     }
 }
 
-// ③ 应用：错误处理结果类型 —— nodiscard 让"无声吞错"不可能
+// ③ 应用：错误处理结果类型 —— nodiscard 提醒检查，调用者仍需处理状态。
 struct [[nodiscard]] ParseResult {
     bool ok;
     int value;
