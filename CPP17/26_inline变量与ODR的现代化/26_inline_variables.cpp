@@ -50,17 +50,19 @@ int main() {
     std::cout << "===== 3. APPLICATION =====\n";
 
     // 3.1 header-only 库的全局计数器：多处自增，全局可见
+    //     计数从 ① 的存量继续累计（同一个实体！）：
+    //     1（①经 alias +1）+ 1（call_a）+ 2（call_b）= 4
     auto call_a = [] { ++api_calls; };
     auto call_b = [] { ++api_calls; ++api_calls; };
     call_a();
     call_b();
-    std::cout << api_calls << '\n';               // 3（1 + 2）
+    std::cout << api_calls << '\n';               // 4 —— 注意：不是 3，①的 +1 还在
 
     // 3.2 与 Meyers 函数互操作：两条路改的是不同实体（教学对照），
     //     真实工程里选一种风格坚持
     ++legacy_counter();
     ++legacy_counter();
-    std::cout << legacy_counter() << ' ' << api_calls << '\n';   // 2 3
+    std::cout << legacy_counter() << ' ' << api_calls << '\n';   // 2 4
 
     // 3.3 常量驱动的重试循环
     for (int i = 1; i <= max_retry; ++i) {
