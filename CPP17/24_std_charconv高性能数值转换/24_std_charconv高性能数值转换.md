@@ -10,14 +10,15 @@
 | 手段 | locale | 堆分配 | 异常 | 性能 |
 |---|---|---|---|---|
 | `atoi/strtol` 家族 | **敏感**（读全局 C locale） | 无 | errno 旧式 | 慢 |
-| `std::sto*` / `std::to_string` | 无关（to_string 绑死 %f） | **可能分配** | **抛异常** | 慢 |
+| `std::sto*` / `std::to_string` | C++17 中受相应 C 转换函数的 locale 规则影响 | **可能分配** | **可能抛异常** | 取决于实现与场景 |
 | `sscanf/sprintf` | 敏感 | 无 | 返回值式 | 慢 |
-| **`to_chars/from_chars`** | **无关** | **零** | **零** | **最快** |
+| **`to_chars/from_chars`** | **无关** | **零** | **零** | 面向高吞吐，具体收益需测量 |
 
 charconv 是为 JSON/协议解析器设计的最底层原语：直线代码、无分配、无异常、
-**浮点保证最短往返表示**（写出的位数读回来还是同一个 double）。
+不带精度参数的浮点输出提供对应格式的最短往返表示；带精度时可能舍入。
+精确往返保证以匹配的 from_chars 格式和同一实现为前提。
 
-### 1.2 API 形态：result 结构体 + error_code
+### 1.2 API 形态：result 结构体 + errc
 
 不用异常、不用 errno，而是返回一个极简结果结构：
 
@@ -53,7 +54,7 @@ auto [to4, ec6] = std::to_chars(buf, buf+32, 3.14159,
 
 规则细则：
 
-- `from_chars` **不跳过前导空白**、**不接受 `+`**（接受 `-`）；
+- `from_chars` **不跳过前导空白**、**不接受前导 `+`**；整数只有有符号目标接受 `-`；
   16 进制**不吃 `0x` 前缀**（只认十六进制数字）
 - 失败不修改目标值；`ec = errc::invalid_argument`（无可解析字符）或
   `errc::result_out_of_range`（溢出）
@@ -66,7 +67,7 @@ auto [to4, ec6] = std::to_chars(buf, buf+32, 3.14159,
 ### 3.1 场景：就地解析协议/CSV（示例 ③-1）
 
 string_view 定位字段 → `from_chars` 就地转 int——零拷贝零分配。
-对照旧写法（substr 出 `string` 再 `stoi`）：每字段至少一次堆分配 + 可能抛异常。
+对照旧写法（substr 出 `string` 再 `stoi`）：需要复制字符，可能分配内存并抛异常。
 
 ### 3.2 场景：高性能序列化（示例 ③-2）
 
@@ -89,7 +90,7 @@ string_view 定位字段 → `from_chars` 就地转 int——零拷贝零分配�
    不是 255（示例 ② 现场演示）
 3. `to_chars` 缓冲区不足 → `errc::value_too_large`，且**不保证**已写内容
 4. 溢出（如 `long` 装 `"99999999999999999999"`）→ `result_out_of_range`，
-   值未定义——别只判 `ec == {}` 之外当成功
+   目标值保持不变；完整消费也不能替代 ec 检查
 5. `std::errc` 是错误条件枚举，与 `error_code` 体系互通但**不是** bool——
    显式比较 `ec == std::errc::xxx` 或 `ec == {}`
 
@@ -114,3 +115,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/24_std_charconv高性能数值转换/24_char
 - 提案 P0067R10（charconv；作者来自 rapidjson/CUDA 社区——性能基因的由来）
 - cppreference: [std::to_chars](https://zh.cppreference.com/w/cpp/utility/to_chars)
 - cppreference: [std::from_chars](https://zh.cppreference.com/w/cpp/utility/from_chars)
+
+## 补充阅读
+
+[24A · 完整解析与结果提交](../补充知识点/24_补充A_完整解析与结果提交/24_补充A_完整解析与结果提交.md)：区分转换成功、完整消费与业务范围，并在全部验证后更新结果。

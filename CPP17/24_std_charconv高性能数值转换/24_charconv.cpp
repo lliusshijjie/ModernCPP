@@ -18,7 +18,7 @@ int main() {
     std::cout << std::boolalpha;
     std::cout << "===== 1. PRINCIPLES =====\n";
 
-    // 验证 1：to_chars 整数 —— [ptr, ...) 即写入区间，零分配
+    // 验证 1：to_chars 整数 —— [buf, to) 是成功写入的区间，转换本身不分配。
     char buf[32];
     auto [to, ec] = std::to_chars(buf, buf + sizeof buf, 42);
     std::cout << std::string(buf, to) << ' ' << (to - buf) << ' '
@@ -69,7 +69,7 @@ int main() {
     std::cout << "===== 3. APPLICATION =====\n";
 
     // 3.1 就地解析 CSV："12,34,56" —— string_view 定位 + from_chars 转换
-    //     零拷贝零分配；旧写法 substr + stoi 每字段至少一次堆分配
+    //     直接解析字符范围；旧写法 substr + stoi 需要复制字符，可能堆分配。
     std::string_view csv = "12,34,56";
     int a = 0, b = 0, c = 0;
     auto seg = [&csv](int& out, std::size_t begin) {

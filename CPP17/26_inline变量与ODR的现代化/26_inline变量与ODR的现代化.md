@@ -6,7 +6,8 @@
 
 ### 1.1 ODR：头文件里放不下变量的年代
 
-**单一定义规则（ODR）**：每个变量/函数在整个程序里只能有一个定义。
+**单一定义规则（ODR）**限制定义出现的位置与一致性。同一个翻译单元内不能重复定义；
+普通的外部链接非 inline 变量通常需要一个程序级定义，inline 实体则有跨 TU 的例外规则。
 头文件被多个 .cpp include 时，里面的 `int counter = 0;` 会在每个翻译单元
 都生成一份定义 → **链接器重定义错误**。C++17 之前只有三条弯路：
 
@@ -53,11 +54,11 @@ struct Config {
 
 规则细则：
 
-- 各 TU 中的 inline 变量定义**必须完全一致**，否则 UB（通常无诊断）——
-  定义只放头文件，绝不抄进 .cpp
+- 各 TU 中的 inline 定义必须满足相同 token 序列、名称查找等 ODR 条件；
+  不满足时程序不符合标准，通常不要求诊断。共享定义集中在头文件维护
 - 整个程序**恰好初始化一次**
-- 跨 TU 的**动态初始化顺序仍未指定**（static init order fiasco 没消失；
-  有顺序依赖就用 Meyers 函数——局部 static 的首次初始化顺序是确定的）
+- 普通非模板 inline 变量的动态初始化是**部分有序**的；满足各 TU 一致的定义先后
+  等条件时能建立次序，不能由 inline 推出任意依赖都有序。有依赖时可考虑按需初始化
 
 ## 三、实际应用与最佳实践
 
@@ -76,7 +77,8 @@ struct Config {
 1. 头文件可变全局 → `inline`；要唯一地址/引用的常量 → `inline constexpr`
 2. 只在编译期用的常量 → 普通 `constexpr` 即可（每 TU 一份无所谓，
    还省了链接器合并）
-3. 类内 `static constexpr` 直接用，删掉所有类外定义（C++17 起是死代码）
+3. 类内 `static constexpr` 无需再提供类外定义；旧式无初始化器的类外重声明在 C++17
+   仍允许但已弃用，可以按项目兼容需求移除
 4. 有初始化顺序依赖的全局 → 仍用 Meyers 函数，别赌未指定顺序
 5. inline 变量定义只出现在头文件——.cpp 里的"再写一遍"是 UB 陷阱
 
@@ -89,8 +91,8 @@ struct Config {
    "多重定义许可 + 一个弱化的优化建议"
 3. 命名空间 `constexpr` 不隐式 inline：多个 TU 地址不同，
    `&x` 比较或 `const T&` 形参绑定可能踩坑
-4. 跨 TU 动态初始化顺序未指定：A 头文件的 inline 变量初始化时
-   用 B 头文件的 inline 变量——时序听天由命
+4. 跨 TU 的动态初始化要检查部分有序规则；不同文件中存在依赖时，
+   不能只看某一个文件的 include 顺序就假定整个程序的初始化次序
 5. inline 变量 + `static` 修饰混写：`static inline` 在命名空间作用域
    会退化成内部链接（每 TU 一份），语义被 static 覆盖
 
@@ -121,3 +123,7 @@ g++ -std=c++17 -Wall -Wextra "CPP17/26_inline变量与ODR的现代化/26_inline_
 - 提案 P0386R2（inline variables）
 - cppreference: [inline 说明符](https://zh.cppreference.com/w/cpp/language/inline)
 - cppreference: [单一定义规则](https://zh.cppreference.com/w/cpp/language/definition)
+
+## 补充阅读
+
+[26A · 跨文件实体身份与 ODR](../补充知识点/26_补充A_跨文件实体身份与ODR/26_补充A_跨文件实体身份与ODR.md)：用两个翻译单元比较变量地址和状态，补充名称查找及局部 static 的共享规则。

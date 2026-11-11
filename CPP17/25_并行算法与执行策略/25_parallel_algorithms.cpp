@@ -1,13 +1,13 @@
 // 第 25 课示例：并行算法与执行策略（C++17）
 //
 // 结构：① 原理验证 —— 策略是重载选择 tag；seq 实跑与无策略版共存
-//       ② 语法演示 —— par 的三步启用（本机无 TBB，注释给全命令）
+//       ② 语法演示 —— par 的用法与可选 TBB 后端配置
 //       ③ 应用实战 —— transform_reduce 家族与 for_each_n（顺序调用即安全）
 //
-// 编译运行（本机无 TBB，用默认命令）：
+// 编译运行（本机默认采用串行后端）：
 //   g++ -std=c++17 -Wall -Wextra 25_parallel_algorithms.cpp -o run && ./run
 //
-// 启用 par 的三步（MSYS2）：
+// 可选：配置 TBB 后端（MSYS2；串行后端也能接受 par，不代表实际并行）：
 //   pacman -S mingw-w64-ucrt-x86_64-tbb
 //   g++ -std=c++17 -Wall -Wextra 25_parallel_algorithms.cpp -ltbb -o run && ./run
 //   然后把下面 std::execution::seq 换成 std::execution::par 即可
@@ -19,6 +19,7 @@
 #include <functional>
 #include <iostream>
 #include <numeric>
+#include <type_traits>
 #include <vector>
 
 int main() {
@@ -41,7 +42,7 @@ int main() {
 
     std::cout << "===== 2. SYNTAX =====\n";
 
-    // 2.1 par 的正确写法（本机缺 TBB —— 编译可过、链接失败，故注释保存）：
+    // 2.1 par 的用法；选择 TBB 后端时要提供匹配库，默认串行后端不要求它：
     //   std::vector<int> big(10'000'000);
     //   ... 填充 ...
     //   std::sort(std::execution::par, big.begin(), big.end());        // 多线程排序
