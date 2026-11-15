@@ -1,0 +1,9 @@
+# Repeatable demo: only overwrites these three keys.
+put service.name string "MiniKV17"
+put service.workers int 4
+put service.ready bool true
+get service.name
+scan service.
+stats
+compact
+quit
