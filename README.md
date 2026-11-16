@@ -193,15 +193,15 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | # | 主题 | 状态 | 日期 |
 |---|------|------|------|
 | 31 | Concepts 概念 | ✅ | 2026-11-14 |
-| 32 | Ranges 入门：新的算法与管道 | ⬜ | |
-| 33 | Ranges 视图组合与惰性求值 | ⬜ | |
-| 34 | Ranges 视图速查与组合实战 | ⬜ | |
-| 35 | 三路比较 <=> 与统一比较 | ⬜ | |
-| 36 | std::format 格式化 | ⬜ | |
-| 37 | std::span | ⬜ | |
-| 38 | std::jthread 与 std::stop_token | ⬜ | |
-| 39 | 协程 coroutine 入门 | ⬜ | |
-| 40 | consteval、constinit 与 std::source_location | ⬜ | |
+| 32 | Ranges 入门：新的算法与管道 | ✅ | 2026-11-16 |
+| 33 | Ranges 视图组合与惰性求值 | ✅ | 2026-11-17 |
+| 34 | Ranges 视图速查与组合实战 | ✅ | 2026-11-18 |
+| 35 | 三路比较 <=> 与统一比较 | ✅ | 2026-11-19 |
+| 36 | std::format 格式化 | ✅ | 2026-11-20 |
+| 37 | std::span | ✅ | 2026-11-21 |
+| 38 | std::jthread 与 std::stop_token | ✅ | 2026-11-22 |
+| 39 | 协程 coroutine 入门 | ✅ | 2026-11-23 |
+| 40 | consteval、constinit 与 std::source_location | ✅ | 2026-11-24 |
 | 41 | 模板 lambda、指定初始化器与 [[likely]] | ⬜ | |
 | 42 | <bit> 家族：popcount、bit_cast、endian | ⬜ | |
 | 43 | std::erase / std::erase_if 统一擦除 | ⬜ | |
