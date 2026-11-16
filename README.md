@@ -199,7 +199,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 35 | 三路比较 <=> 与统一比较 | ✅ | 2026-11-19 |
 | 36 | std::format 格式化 | ✅ | 2026-11-20 |
 | 37 | std::span | ✅ | 2026-11-21 |
-| 38 | std::jthread 与 std::stop_token | ⬜ | |
+| 38 | std::jthread 与 std::stop_token | ✅ | 2026-11-22 |
 | 39 | 协程 coroutine 入门 | ⬜ | |
 | 40 | consteval、constinit 与 std::source_location | ⬜ | |
 | 41 | 模板 lambda、指定初始化器与 [[likely]] | ⬜ | |
