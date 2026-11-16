@@ -19,7 +19,7 @@ consteval int sq(int x) { return x * x; }
 // ① constinit：静态存储 + 常量初始化（可运行期修改！）
 constinit int counter = 7;
 
-// ③ 编译期查表：consteval 造表，constexpr 变量接住（进只读数据）
+// ③ 编译期查表：consteval 造表，constexpr 接住（具体存储段由实现决定）
 consteval std::array<int, 4> squares() {
     std::array<int, 4> r{};
     for (int i = 0; i < 4; ++i) r[i] = i * i;
@@ -56,6 +56,8 @@ int main() {
     // constinit int bad = runtime_init();   // 编译错：初始化器须为常量表达式
     // constinit int local = 1;              //（放在函数内）编译错：仅限
     //                                        // 静态/线程存储期变量
+    static constinit int local_counter = 1;       // 函数内 static 合法
+    ++local_counter;
 
     std::cout << "===== 2. SYNTAX =====\n";
 
@@ -66,7 +68,7 @@ int main() {
 
     // 2.2 关键差异：函数体内取 current() 得到的是"函数自己的位置"；
     //     默认实参处取 current() 得到的是"调用方的位置"——无宏日志的根基
-    log("hello from main");                      // [L69 int main()] hello from main
+    log("hello from main");                      // [L调用行号 int main()] hello from main
 
     // 2.3 三兄弟分工速览（对照）：
     //   constexpr 变量：编译期初始化 + 只读
@@ -81,8 +83,8 @@ int main() {
     std::cout << total << '\n';                  // 14（0+1+4+9）
 
     // 3.2 日志多点调用：各自的行号自动正确
-    log("first");                                // [L84 int main()] first
-    log("second");                               // [L85 int main()] second
+    log("first");                                // [L调用行号 int main()] first
+    log("second");                               // [L调用行号 int main()] second
 
     // 3.3 实战心法（对照 ①②③）：
     //   想锁死"只在编译期"用 consteval；只是"可用编译期"用 constexpr

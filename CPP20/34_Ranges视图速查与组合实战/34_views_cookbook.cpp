@@ -8,6 +8,7 @@
 //   g++ -std=c++20 -Wall -Wextra 34_views_cookbook.cpp -o run && ./run
 // 先预测每行输出，再运行对照！
 
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <numeric>   // std::accumulate
@@ -87,7 +88,15 @@ int main() {
 
     // 3.3 实战心法（对照 ①②③）：
     //   源（iota/split/join）管形态，filter/transform 管内容
-    //   无穷源下游必有 take；split 产物要 string 先物化
-    //   能力短板决定整条链；要排序先落地
+    //   无界源需明确终止消费；split 产物要 string 先物化
+    //   先检查迭代能力和可写性；满足要求的视图可直接排序
+
+    // 3.4 可写随机访问视图可以直接排序，修改的是原容器的对应片段
+    std::vector<int> sortable{3, 1, 2, 9};
+    auto prefix = sortable | std::views::take(3);
+    static_assert(std::ranges::random_access_range<decltype(prefix)>);
+    std::ranges::sort(prefix);
+    for (int x : sortable) std::cout << x << ' ';
+    std::cout << '\n';                       // 1 2 3 9
     return 0;
 }

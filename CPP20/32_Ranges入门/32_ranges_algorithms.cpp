@@ -9,7 +9,7 @@
 // 先预测每行输出，再运行对照！
 
 #include <algorithm>   // std::ranges::sort/find/count_if/max_element/transform
-#include <functional>  // std::greater（{} 默认即 ranges::less）
+#include <functional>  // std::greater
 #include <iostream>
 #include <iterator>    // std::back_inserter
 #include <ranges>      // std::ranges::dangling
@@ -52,7 +52,7 @@ int main() {
     auto it2 = std::ranges::find(v.begin(), v.end(), 5);
     std::cout << *it2 << '\n';               // 5
 
-    // 2.2 安全访问器：size（无符号、O(1) 契约）与 ssize（有符号）
+    // 2.2 size（vector 返回无符号类型、摊销 O(1)）与 ssize（有符号）
     std::cout << std::ranges::size(v) << ' '
               << std::ranges::ssize(v) << ' '
               << *std::ranges::data(v) << '\n';   // 6 6 1
@@ -81,7 +81,7 @@ int main() {
     auto oldest = std::ranges::max_element(team, {}, &Person::age);
     std::cout << oldest->name << '\n';       // cy
 
-    // 3.2 transform + 投影：提取字段到新容器
+    // 3.2 transform 的操作函数：成员指针直接提取字段（此参数不是投影）
     std::vector<std::string> names;
     std::ranges::transform(team, std::back_inserter(names), &Person::name);
     for (const auto& s : names) std::cout << s << ' ';

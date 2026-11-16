@@ -7,32 +7,34 @@
 
 ### 1.1 旧算法的三个顽疾
 
-C++98 起 `<algorithm>` 只认**迭代器对**：`std::sort(v.begin(), v.end())`。
+传统的 `sort/find` 等算法通常要求显式传入**迭代器对**，例如
+`std::sort(v.begin(), v.end())`。
 
 | 顽疾 | 症状 | ranges 的解法 |
 |---|---|---|
 | 啰嗦 | 每次手写 begin/end | **直接传区间**：`std::ranges::sort(v)` |
 | 按字段操作要写比较器 | `sort(v, [](a,b){ return a.age < b.age; })` 满屏 | **投影 projection**：`ranges::sort(v, {}, &Person::age)` |
-| 迭代器悬垂无处防 | 对临时容器 `find` 返回指向亡灵的迭代器（UB） | **borrowed_range 检查**：返回 `ranges::dangling`，解引用直接编译错 |
+| 迭代器悬垂无处防 | 保存临时容器的查找结果，容器销毁后再解引用会 UB | **borrowed_range 检查**：返回 `ranges::dangling`，解引用直接编译错 |
 
 ### 1.2 迭代器 + 哨兵：end 不必再是"同一种迭代器"
 
 ranges 算法的区间是 `[first, sentinel)`——**哨兵可以与迭代器类型不同**，
-只要求"迭代器 == 哨兵"这个表达式合法。这解开了"必须先知道终点"的枷锁：
+需满足 `std::sentinel_for<S, I>`：包含哨兵可复制、迭代器要求及双向相等/不等比较等契约。这解开了"必须先知道终点"的枷锁：
 null 结尾的字符串、按条件终止、甚至**无穷序列**（第 33 课的 `views::iota`）
-都能作为合法区间参与算法。
+都能表示为区间；具体算法仍有额外要求，遍历无穷区间的算法可能无法终止。
 
 ### 1.3 函数对象接口 + 全概念约束
 
-`std::ranges::sort` 不是普通函数，而是**函数对象（niebloid）**：不经 ADL 查找，
-用户代码无法劫持；所有重载都以第 31 课的概念（`range` / `random_access_range` /
-`sized_range` / `borrowed_range`……）约束——传错了是一行人话报错，不是千行展开。
-配套的 `ranges::begin/end/size/ssize/data` 是安全访问器：对内置数组、容器、
-以及带自由 `begin()` 的类型统一处理。
+`std::ranges::sort` 等约束算法具有 **niebloid** 调用规则：不能显式指定
+模板实参，它们本身不由 ADL 找到，正常查找找到它们后会抑制 ADL。实现
+通常采用函数对象。算法以 `range`、`random_access_range`、`sortable` 等
+概念约束接口；`borrowed_range` 还会影响结果类型。报错长度仍取决于实现。
+配套的 `ranges::begin/end/size/ssize/data` 是定制点对象（CPO），按各自规则
+访问数组、成员或 ADL 定制；它们不是边界检查器。
 
 ### 1.4 投影（projection）：本次入门最重要的新武器
 
-每个 ranges 算法最后都有个可选投影参数：**先把元素"投影"成比较目标，再参与操作**。
+许多 ranges 算法提供可选投影参数：**先把元素"投影"成比较目标，再参与操作**。
 投影是任意可调用——成员指针 `&Person::age`、`[](auto& p){ return p.name; }` 都行。
 
 ```cpp
@@ -54,18 +56,22 @@ auto it = std::ranges::find(v, 8);             // 左值容器：真迭代器
 auto d  = std::ranges::find(std::vector{1}, 1);// 右值容器：ranges::dangling
 auto p  = std::ranges::find(ps, "ann", &Person::name);   // 投影查找
 auto n  = std::ranges::count_if(ps, pred, &Person::age); // 投影计数
-std::ranges::size(v);   // 无符号，要求 O(1)
-std::ranges::ssize(v);  // 有符号（ptrdiff_t），for 循环下标友好
+std::ranges::size(v);   // vector 的结果为无符号 size_type，要求摊销 O(1)
+std::ranges::ssize(v);  // 有符号整数，至少有 ptrdiff_t 的宽度，不保证恰是该类型
 ```
 
 规则细则：
 
-- **几乎所有** ranges 算法都接受投影（作为最后一个参数），对每个元素先投影再操作
-- 投影结果只用于比较/判断；元素本身的交换、拷贝不受投影影响
-- `ranges::size/ssize` 要求**常数时间**——`forward_list` 没有 size，直接编译错
-- 对右值非 view 区间调用返回迭代器的算法 → 得到 `std::ranges::dangling`；
-  它没有 `operator*`，悬垂从 UB 降级为编译错。`string_view` 等视图是
-  `borrowed_range`，右值也安全（第 33 课展开）
+- `sort/find/count_if` 等接受投影；`copy/reverse` 等没有投影参数。
+  二元算法可能提供两个投影，具体以签名为准
+- 排序/查找中的投影不改变被交换的元素；`ranges::transform` 的变换函数
+  是操作本身，输出的就是变换结果，不能与投影混为一谈
+- `sized_range` 要求 `ranges::size` **摊销常数时间**；结果可为有符号或
+  无符号整数类类型。`forward_list` 没有可用的 size 路径，不能这样求大小
+- 使用 `borrowed_iterator_t<R>` 返回结果的算法：右值区间若不是
+  `borrowed_range`，迭代器结果会替换成 `dangling`，与是否为 view 无直接等价关系。
+  `string_view`/`span` 是 borrowed range，但其底层数据仍须活着；
+  `filter_view`/`transform_view` 的迭代器通常依赖视图对象本身
 - ranges 算法绝大多数是 **constexpr** 的（第 44 课配合编译期容器使用）
 - 数值折叠没有 ranges 版：`accumulate` 仍是经典接口，`ranges::fold_left` 要等 C++23
 
@@ -74,7 +80,7 @@ std::ranges::ssize(v);  // 有符号（ptrdiff_t），for 循环下标友好
 ### 3.1 场景：结构体集合的全投影化操作（示例 ③）
 
 按 `age` 排序、按 `name` 查找、按 `age` 计数、提取 `name` 列表——
-四件事没有一个手写比较 lambda（示例 ③）。
+排序和查找用成员指针，计数用谓词加投影，提取字段用 transform 的操作函数（示例 ③）。
 
 ### 3.2 场景：悬垂防御（示例 ①）
 
@@ -86,7 +92,7 @@ std::ranges::ssize(v);  // 有符号（ptrdiff_t），for 循环下标友好
 1. 新代码一律 `std::ranges::xxx(容器)` 起步；只在需要子区间时写迭代器对
 2. 按字段操作**先想投影**：`{}` 比较器 + `&Struct::field` 能顶掉八成比较 lambda
 3. 对临时区间取结果前自问：它是不是 `borrowed_range`？不是就先存变量
-4. 需要下标循环时用 `ranges::ssize`（有符号，与 `vector::difference_type` 一致）
+4. 需要有符号大小时用 `ranges::ssize`；具体返回类型不保证与容器的 difference_type 相同
 5. 算法是**立即求值**的（eager）；要"流水线按需计算"用下一课的视图
 
 ## 常见陷阱
@@ -97,8 +103,10 @@ std::ranges::ssize(v);  // 有符号（ptrdiff_t），for 循环下标友好
    但解引用 dangling 编译错——这是**故意的**，把旧时代的 UB 显式化
 3. `ranges::count(v, "abc")`：值与元素要能 `==`——`const char*` 与元素
    `const char*` 比的是**指针**，与 `std::string` 比的才是内容
-4. `ranges::size` 在链式结构上编译错不是 bug：O(1) 语义是接口契约的一部分
-5. `ranges::sort` 只支持 `random_access_range`：传 `list`/`forward_list` 编译错
+4. `forward_list` 不支持 `ranges::size`；`list` 有常数时间的成员 `size()`，
+   可以调用。能否求大小不只取决于是否为链式结构
+5. `ranges::sort` 要求 `random_access_range` 且迭代器满足 `sortable`：
+   只读或不可交换的随机访问区间也不行；传 `list`/`forward_list` 编译错
    ——链表排序本来就该用成员 `sort()`（稳定性与节点交换语义不同）
 
 ## 完整示例
@@ -121,6 +129,8 @@ g++ -std=c++20 -Wall -Wextra "CPP20/32_Ranges入门/32_ranges_algorithms.cpp" -o
 
 ## 参考
 
+- [C++20 草案：borrowed_range](https://timsong-cpp.github.io/cppwp/n4861/range.range)
+- [C++20 草案：ranges::ssize](https://timsong-cpp.github.io/cppwp/n4861/range.prim.ssize)
 - 提案 P0896R4（The One Ranges Proposal，ranges 与约束算法入 C++20）
 - cppreference: [约束算法 std::ranges](https://zh.cppreference.com/w/cpp/algorithm/ranges)
 - cppreference: [投影（projection）](https://zh.cppreference.com/w/cpp/algorithm/ranges#投影)

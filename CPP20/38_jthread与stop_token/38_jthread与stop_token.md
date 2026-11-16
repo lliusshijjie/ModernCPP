@@ -9,11 +9,12 @@
 
 | 罪 | `std::thread` 的行为 | `std::jthread` 的行为 |
 |---|---|---|
-| 忘 join/忘 detach | 析构时 **`std::terminate`** 直接崩 | 析构 = `request_stop()` + `join()`（RAII） |
+| 忘 join/忘 detach | 析构时 **`std::terminate`** 直接崩 | 析构时若 joinable，则 `request_stop()` + `join()`（RAII） |
 | 取消协作无标准件 | 手写 `std::atomic<bool> stop` 各搞各的 | 内置 **stop 状态机**（source/token/callback 三件套） |
 
 jthread = **joining thread**：第 12 课的 RAII 思想终于落到线程上——
-"线程生命期绑定对象生命期，离开作用域前必然干净收尾"。
+通常可让作用域退出时请求停止并等待线程，但工作线程必须配合退出，
+依赖的资源也须活到 join 完成；`detach`、自连接或锁依赖等仍需谨慎处理。
 
 ### 1.2 stop 三件套：source / token / callback
 
@@ -28,14 +29,15 @@ stop_callback<C>：注册"停时回调"，随对象注销而解除
 ```
 
 - jthread **自带一个 stop_source**：`get_stop_source()` / `get_stop_token()`
-- 若线程入口函数**第一个参数是 `std::stop_token`**，jthread 自动把自己的
-  token 塞进去（"with stop token" 入口）——不需要额外接线
+- 若入口可调用对象能以 `stop_token` 加其余实参调用，jthread 优先传入自己的
+  token；否则尝试不带 token 的调用。首参写 `std::stop_token` 是常用形式，
+  泛型可调用对象也可以接收 token
 - `request_stop()` 是**协作式**的：只置位不抢杀；工作线程必须在循环/等待处
-  **主动检查** `stop_requested()`
+  **主动检查** `stop_requested()`；请求方还会同步执行已注册的停止回调
 
 ### 1.3 stop_callback 的两个关键语义
 
-1. 回调在**调用 `request_stop()` 的线程**里同步执行（不在工作线程）——
+1. 回调在**成功发出停止请求的线程**里同步执行，该线程也可能就是 worker——
    回调里别做长活，它阻塞请求方
 2. 注册时若**已停止**，回调**立即在注册线程执行**——天然处理"迟到注册"
 
@@ -56,16 +58,18 @@ bool first = ss.request_stop();                   // 首次 true，之后 false
 
 // 与条件变量联动：可被 stop 打断的等待（免自旋）
 std::condition_variable_any cv;
-cv.wait(lock, tk, pred);   // 收到 stop 就醒来（wait 返回 false 表示被停）
+bool has_data = cv.wait(lock, tk, pred); // 返回最终 pred() 的值；stop 与数据可同时发生
 ```
 
 规则细则：
 
-- `stop_possible()`：token 有没有可能被停（空头 token 为 false）
-- 同一 stop 状态可接**多个** callback；callback 对象析构即注销
+- token 的 `stop_possible()`：已请求停止，或关联状态仍有 stop_source 可发请求。
+  无关联状态为 false；所有 source 消失且尚未停止时也为 false
+- 同一 stop 状态可接**多个** callback；callback 对象析构会注销，
+  必要时等待另一线程正在执行的回调结束；回调若抛异常会 terminate
 - jthread 不可拷贝，可移动；移动后的旧对象 `joinable() == false`
-- `detach()` 仍可用，但 detach 后析构不再 join——stop 状态仍共享，
-  token 继续有效（停止权在握，join 义务已放）
+- `detach()` 后不再 join，析构也不再自动请求 stop。持有的 token 仍引用状态，
+  但 token 本身不能发请求；若需之后停止，须保留可用的 stop_source
 - 等待 + stop 的组合首选 `condition_variable_any::wait(lock, token, pred)`
   ——普通 `condition_variable` 没有 token 重载（它要求 unique_lock，
   `_any` 才是通用版）
@@ -76,7 +80,8 @@ cv.wait(lock, tk, pred);   // 收到 stop 就醒来（wait 返回 false 表示�
 
 循环体第一行检查 `st.stop_requested()`；阻塞等待处用
 `cv.wait(lock, st, pred)`——两处都是"检查点"，取消延迟以检查点为界。
-jthread 析构自动收尾，main 提前 return / 异常展开都安全。
+jthread 析构在 joinable 时自动 stop + join；锁和共享数据须安排好析构顺序，
+不能在持有 worker 所需锁时阻塞 join。入口函数中未捕获异常仍会 terminate。
 
 ### 3.2 场景：跨组件的停止信号（示例 ①）
 
@@ -101,7 +106,8 @@ token——一处 `request_stop()`，全局收工。比广播 atomic<bool> 干�
 3. 已停止后再注册 callback：立即执行（不是永远不执行）——时序敏感处
    要意识到这条
 4. jthread 忘记 join 就让它离开作用域**不是**错误（自动 stop+join），
-   但**依赖析构收尾等于接受最晚退出时机**；需要"完成后立刻继续"就显式 join
+   但析构可能阻塞；显式 `join()` 只等待、不发停止请求。循环任务通常要先
+   `request_stop()` 再 `join()`，让任务自然完成时则直接 join
 5. `std::thread` 混用旧习：`std::thread t(...)` 忘 join 析构直接 terminate；
    迁移清单 = 换类型 + 首参加 token + 循环加检查点
 6. 二次 `request_stop()` 返回 false——用返回值区分"我首发"还是"别人已停"
@@ -111,15 +117,17 @@ token——一处 `request_stop()`，全局收工。比广播 atomic<bool> 干�
 见 `38_jthread_stop.cpp`，按 ① 原理验证 → ② 语法演示 → ③ 应用实战 三段组织：
 
 ```bash
-g++ -std=c++20 -Wall -Wextra "CPP20/38_jthread与stop_token/38_jthread_stop.cpp" -o run && ./run
+g++ -std=c++20 -Wall -Wextra -pthread "CPP20/38_jthread与stop_token/38_jthread_stop.cpp" -o run && ./run
 ```
 
 ## 练习
 
 1. 把一个自旋 worker（`while(!stop) 累加`）改成每轮 `sleep_for(1ms)`，
-   观察取消延迟的变化，并解释"检查点密度决定取消延迟"。
-2. 用 `stop_source` 同时停两个 jthread（共享同一 token），验证一处请求、
-   双双退出。
+   观察取消延迟的变化，并解释检查点间的工作/阻塞与调度如何影响延迟。
+   `sleep_for` 不会被 stop_token 自动中断。
+2. 用独立的 `stop_source` 同时停两个 worker：让线程入口捕获共享 token，
+   明确忽略或不接收 jthread 自动注入的 token。验证外部 source 停止两线程；
+   此时各 jthread 自己的 request_stop() 不会停止外部 token 对应的状态。
 3. 复现陷阱 3：先 `request_stop()` 再注册 callback，打印回调执行时机
    （应在注册线程立即执行）。
 4. 用 `condition_variable_any::wait(lock, token, pred)` 写"等数据或停止"：
@@ -127,6 +135,8 @@ g++ -std=c++20 -Wall -Wextra "CPP20/38_jthread与stop_token/38_jthread_stop.cpp"
 
 ## 参考
 
+- [C++20 草案：可中断等待的返回值](https://timsong-cpp.github.io/cppwp/n4861/thread.condvarany.intwait)
+- [C++20 草案：jthread 构造、析构](https://timsong-cpp.github.io/cppwp/n4861/thread.jthread.cons)
 - 提案 P0660R10（stop_token/jthread）
 - cppreference: [std::jthread](https://zh.cppreference.com/w/cpp/thread/jthread)
 - cppreference: [std::stop_callback](https://zh.cppreference.com/w/cpp/thread/stop_callback)

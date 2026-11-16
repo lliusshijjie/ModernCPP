@@ -5,13 +5,14 @@
 //       ③ 应用实战 —— 可取消的后台 worker
 //
 // 编译运行：
-//   g++ -std=c++20 -Wall -Wextra 38_jthread_stop.cpp -o run && ./run
+//   g++ -std=c++20 -Wall -Wextra -pthread 38_jthread_stop.cpp -o run && ./run
 // 先预测每行输出，再运行对照！
 
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
+#include <stop_token>
 #include <thread>
 
 using namespace std::chrono_literals;   // 1ms 等（第 08 课字面量）
@@ -63,7 +64,7 @@ int main() {
     }                                                     // 此处自动 stop+join
     std::cout << "main: scope closed\n";                  // worker: done 先于此行
 
-    // 2.3 析构收尾后 token 视角：jthread 自带的 source 已请求
+    // 2.3 显式 stop + join 后 token 视角：t 仍存活且停止状态保留
     std::cout << t.get_stop_token().stop_requested() << '\n';   // true
 
     std::cout << "===== 3. APPLICATION =====\n";
@@ -74,8 +75,9 @@ int main() {
     bool ready = false;
     auto waiter = [&](std::stop_token st) {
         std::unique_lock lk(m);
-        cv.wait(lk, st, [&] { return ready; });   // 醒于：数据到 或 被停
-        if (st.stop_requested()) {
+        // 返回最终谓词值；数据与 stop 同时发生时，本例优先处理已就绪数据
+        bool has_data = cv.wait(lk, st, [&] { return ready; });
+        if (!has_data) {
             std::cout << "waiter: stopped\n";
             return;
         }
@@ -85,20 +87,17 @@ int main() {
     // 路径 A：数据先到（显式 join 收尾——避免析构 stop 抢跑的竞态）
     {
         std::jthread w{waiter};
-        std::this_thread::sleep_for(5ms);         // 确保 worker 已进入等待
         { std::lock_guard lk(m); ready = true; }
         cv.notify_one();
         w.join();                                 // worker 醒来处理数据
     }                                             // 已 join：析构不再发 stop
     std::cout << "main: path A done\n";
 
-    // 路径 B：等待中途被停（notify + stop 双发，醒来走停止分支）
+    // 路径 B：谓词为 false 时请求停止；带 token 的 wait 不需要额外 notify
     {
         ready = false;
         std::jthread w{waiter};
-        std::this_thread::sleep_for(5ms);
         w.request_stop();
-        cv.notify_one();                          // 唤醒以检查停止
     }
     std::cout << "main: path B done\n";
 

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <compare>
+#include <cmath>     // std::copysign：显式确定 NaN 的符号
 #include <iostream>
 #include <limits>
 #include <map>
@@ -29,12 +30,14 @@ struct Score {                     // 含 double → 整体退化为 partial_ord
     bool operator==(const Score&) const = default;
 };
 
-struct Strict {                    // 手写压平：double 也强序（值域承诺无 NaN）
+struct Strict {                    // 使用一致的强序与相等语义，覆盖 NaN / 有符号零
     double v;
     std::strong_ordering operator<=>(const Strict& o) const {
         return std::strong_order(v, o.v);
     }
-    bool operator==(const Strict&) const = default;
+    bool operator==(const Strict& o) const {
+        return std::is_eq(*this <=> o);
+    }
 };
 
 // struct Bad { double v;
@@ -65,7 +68,9 @@ int main() {
     std::cout << "===== 2. SYNTAX =====\n";
 
     // 2.1 partial_ordering：NaN 不可比；+0.0 与 -0.0 等价
-    double nan = std::numeric_limits<double>::quiet_NaN();
+    static_assert(std::numeric_limits<double>::is_iec559,
+                  "This example demonstrates IEC 60559 floating-point totalOrder");
+    double nan = std::copysign(std::numeric_limits<double>::quiet_NaN(), 1.0);
     std::cout << ((nan <=> 1.0) == std::partial_ordering::unordered) << ' '
               << ((0.0 <=> -0.0) == std::partial_ordering::equivalent)
               << '\n';                                    // true true
@@ -82,6 +87,10 @@ int main() {
     // 2.3 手写压平后的 Strict：比较不再出现 unordered
     std::cout << (Strict{1.5} < Strict{2.5}) << ' '       // true
               << (Strict{nan} > Strict{1.0}) << '\n';     // true（+NaN 居大）
+
+    // 验证相等与强序一致：NaN 与自身等价，有符号零在全序中不同
+    std::cout << (Strict{nan} == Strict{nan}) << ' '
+              << (Strict{0.0} == Strict{-0.0}) << '\n'; // true false
 
     // 2.4 类别放宽：strong → weak/partial 合法，反向编译错
     std::weak_ordering w = Ver{1, 0, 0} <=> Ver{2, 0, 0};
@@ -106,6 +115,7 @@ int main() {
     // 3.3 实战心法（对照 ①②③）：
     //   值语义类：<=> 与 == 成对 default，两行结束
     //   浮点成员先想类别：强序手写 strong_order 压平
-    //   unordered 不是 false——下游分支要显式处理
+    //   unordered 需显式处理；普通含 NaN 的 < 不满足排序所需严格弱序
+    //   strong_order 的 == 要与排序等价保持一致（尤其是 NaN 和有符号零）
     return 0;
 }

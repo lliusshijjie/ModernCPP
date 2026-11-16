@@ -26,6 +26,7 @@ int main() {
     int calls = 0;
 
     // 验证 1：构造管道零求值 —— 食谱写好，菜没下锅
+    // 计数仅用于观察本次遍历；工程代码不要依赖视图中副作用的精确次数。
     auto sq = v | std::views::transform([&calls](int x) {
         ++calls;
         return x * x;
@@ -67,7 +68,7 @@ int main() {
     // 2.4 const filter_view 不可迭代（C++20 接口约束）：
     // const auto cev = v | std::views::filter(...);
     // for (int x : cev) {}   // 编译错：begin() 非 const
-    // 视图对象一律存成非 const
+    // filter_view 对象需非 const；其他视图是否可 const 迭代由类型决定
 
     std::cout << "===== 3. APPLICATION =====\n";
 
@@ -89,7 +90,7 @@ int main() {
     // 3.3 实战心法（对照 ①②③）：
     //   一趟查询用管道，多趟消费先落地
     //   局部变量上的视图不逃逸（ref_view 只借不养）
-    //   谓词签名 const&，映射可传成员指针
+    //   只读谓词推荐 const&（非 const 容器也允许不修改元素的 T& 谓词）
     //   副作用交给算法（eager），管道里只放纯函数
     return 0;
 }

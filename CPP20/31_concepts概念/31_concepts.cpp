@@ -32,7 +32,7 @@ concept Container = requires(T c, const T cc) {
     requires std::is_default_constructible_v<T>;             // ③ 嵌套要求
 };
 
-// ② 三种使用姿势（约束力相同，位置不同）
+// ② 三种约束写法（用于新声明；重声明同一模板时需保持形式一致）
 template <Addable T>                     // 姿势一：直接当"类型"
 T add1(T a, T b) { return a + b; }
 
@@ -43,14 +43,14 @@ void print_num(Numeric auto x) {         // 姿势三：auto 简写
     std::cout << x << '\n';
 }
 
-// ③ subsumption：同名重载按约束包含自动优选——tag 派发的终结者
+// ③ subsumption 参与重载优选；本例 integral 版比无约束版更受约束
 template <class T>
 T pick(T a, T /*b*/) { return a; }                 // 兜底版（无约束）
 
 template <std::integral T>
 T pick(T /*a*/, T b) { return b; }                 // integral 更严：对整数胜出
 
-// ③ 约束化的 API：错误信息一行看懂
+// ③ 约束化 API：诊断能指出未满足的约束，具体长度取决于编译器
 template <class... Ts> requires (Numeric<Ts> && ...)
 auto sum(Ts... xs) { return (xs + ... + 0); }      // 折叠（第 14 课）
 
@@ -82,7 +82,7 @@ int main() {
     // 2.2 姿势三：auto 简写（42 与 3.5 都满足 Numeric）
     print_num(42);                                // 42
     print_num(3.5);                               // 3.5
-    // print_num("x");   // 编译错（一行讲清原因）：
+    // print_num("x");   // 编译错（示意，实际诊断由实现决定）：
     //   constrained by 'Numeric auto' ... constraints not satisfied
 
     // 2.3 四件套 concept 的判定
@@ -96,7 +96,7 @@ int main() {
     // 3.1 约束化 API：sum 拒绝非数值（编译期），数值畅行
     std::cout << sum(1, 2, 3) << ' ' << sum(1.5, 2.5) << '\n';   // 6 4
     // sum(std::string("a"), "b");  // 编译错：constraints not satisfied
-    // 对比 enable_if 时代的报错：数千行模板展开（此处省略）
+    // 与 enable_if 相比，约束通常更容易定位；并不保证错误只有一行
 
     // 3.2 subsumption：int 落到 integral 版（返回 b），double 落兜底版（返回 a）
     std::cout << pick(1, 2) << ' ' << pick(1.5, 2.5) << '\n';    // 2 1.5

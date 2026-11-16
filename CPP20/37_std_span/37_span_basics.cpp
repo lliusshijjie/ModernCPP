@@ -8,6 +8,7 @@
 //   g++ -std=c++20 -Wall -Wextra 37_span_basics.cpp -o run && ./run
 // 先预测每行输出，再运行对照！
 
+#include <algorithm>
 #include <array>
 #include <cstddef>   // std::byte
 #include <iostream>
@@ -46,9 +47,10 @@ int main() {
     bump(v);
     std::cout << v[0] << v[1] << v[2] << '\n';             // 234
 
-    // 验证 3：span 平凡可拷贝、按值传参（指针 + 长度）
+    // 验证 3：本实现的 span 平凡可拷贝，适合按值传参
+    // C++23 起明确保证所有特化均平凡可拷贝；C++20 常见实现也满足
     static_assert(std::is_trivially_copyable_v<std::span<int>>);
-    std::cout << sizeof(std::span<int>) << '\n';           // 8（32 位目标：指针 4 + 长度 4；64 位为 16）
+    std::cout << sizeof(std::span<int>) << '\n';           // 本机 32 位目标为 8，常见 64 位实现为 16；精确布局不由标准保证
 
     std::cout << "===== 2. SYNTAX =====\n";
 
@@ -58,10 +60,13 @@ int main() {
     static_assert(std::is_same_v<decltype(fa), std::span<int, 3>>);
     std::cout << fa.size() << ' ' << fv.size() << '\n';    // 3 3
 
-    // 2.2 转换只放宽：固定 -> 动态 -> const
+    // 2.2 隐式转换可放宽；动态 -> 固定需显式构造并满足长度恰好一致
     std::span<int> dyn = fa;                               // OK
     std::span<const int> ro = dyn;                         // OK
-    // std::span<int, 3> back = dyn;   // 编译错：动态回固定
+    // std::span<int, 3> back = dyn;   // 编译错：不能隐式动态 -> 固定
+    std::span<int, 3> back{dyn};                    // 显式合法，dyn.size() 恰好为 3
+    // span 无内建 ==；比较内容用算法，不比较两个借条对象
+    std::cout << std::ranges::equal(back, fa) << '\n'; // true
     std::cout << ro.size() << '\n';                        // 3
 
     // 2.3 切片：first / last / subspan（返回仍是借条）
@@ -73,11 +78,12 @@ int main() {
 
     // 2.4 原始字节视图：as_bytes（span<const byte>）
     std::span<const std::byte> bs = std::as_bytes(sw);
-    std::cout << bs.size() << ' ' << sw.size_bytes() << '\n';   // 24 24
+    std::cout << bs.size() << ' ' << sw.size_bytes() << '\n';   // 本机 sizeof(int)==4 时为 24 24，通用值是 6*sizeof(int)
 
     std::cout << "===== 3. APPLICATION =====\n";
 
     // 3.1 统计接口：只读 + 任何来源；min/max 一趟拿
+    // 前提：s 非空；front() 不负责检查空区间
     auto stats = [](std::span<const int> s) {
         int lo = s.front(), hi = s.front();
         for (int x : s) { if (x < lo) lo = x; if (x > hi) hi = x; }

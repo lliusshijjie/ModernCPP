@@ -76,10 +76,10 @@ int main() {
         std::format_to(std::back_inserter(out), "[{:0>2}]", i);
     std::cout << out << '\n';                       // [01][02][03]
 
-    // 3.3 有界输出：format_to_n 截断安全；size 是"全长"非写入长
+    // 3.3 有界输出：n 不得超过真实容量；不自动补零，size 是未截断全长
     char buf[5];
     auto r = std::format_to_n(buf, 4, "{}", "abcdefg");
-    buf[4] = '\0';                                  // 截断后自行收尾
+    *r.out = '\0';                                  // 预留一个字符，按实际写入终点补零
     std::cout << buf << ' ' << r.size << ' '
               << std::formatted_size("{}", "abcdefg") << '\n';
     // abcd 7 7
