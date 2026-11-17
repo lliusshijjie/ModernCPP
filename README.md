@@ -202,7 +202,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 38 | std::jthread 与 std::stop_token | ✅ | 2026-11-22 |
 | 39 | 协程 coroutine 入门 | ✅ | 2026-11-23 |
 | 40 | consteval、constinit 与 std::source_location | ✅ | 2026-11-24 |
-| 41 | 模板 lambda、指定初始化器与 [[likely]] | ⬜ | |
+| 41 | 模板 lambda、指定初始化器与 [[likely]] | ✅ | 2026-11-25 |
 | 42 | <bit> 家族：popcount、bit_cast、endian | ⬜ | |
 | 43 | std::erase / std::erase_if 统一擦除 | ⬜ | |
 | 44 | constexpr string/vector：编译期容器 | ⬜ | |
