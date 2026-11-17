@@ -209,7 +209,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 45 | std::atomic 的等待与通知 | ✅ | 2026-11-29 |
 | 46 | char8_t 与 Unicode 基础 | ✅ | 2026-11-30 |
 | 47 | Modules 模块入门 | ✅ | 2026-12-01 |
-| 48 | chrono 日历与时区 | ⬜ | |
+| 48 | chrono 日历与时区 | ✅ | 2026-12-02 |
 
 ### CPP23/（第 49–60 课）
 
