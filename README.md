@@ -204,7 +204,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 40 | consteval、constinit 与 std::source_location | ✅ | 2026-11-24 |
 | 41 | 模板 lambda、指定初始化器与 [[likely]] | ✅ | 2026-11-25 |
 | 42 | <bit> 家族：popcount、bit_cast、endian | ✅ | 2026-11-26 |
-| 43 | std::erase / std::erase_if 统一擦除 | ⬜ | |
+| 43 | std::erase / std::erase_if 统一擦除 | ✅ | 2026-11-27 |
 | 44 | constexpr string/vector：编译期容器 | ⬜ | |
 | 45 | std::atomic 的等待与通知 | ⬜ | |
 | 46 | char8_t 与 Unicode 基础 | ⬜ | |
