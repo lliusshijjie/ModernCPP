@@ -5,15 +5,12 @@
 //       ③ 应用实战 —— 数据就绪握手（免锁、免条件变量）
 //
 // 编译运行：
-//   g++ -std=c++20 -Wall -Wextra 45_atomic_wait_notify.cpp -o run && ./run
+//   g++ -std=c++20 -Wall -Wextra -pthread 45_atomic_wait_notify.cpp -o run && ./run
 // 先预测每行输出，再运行对照！
 
 #include <atomic>
-#include <chrono>
 #include <iostream>
 #include <thread>
-
-using namespace std::chrono_literals;
 
 int main() {
     std::cout << std::boolalpha;
@@ -40,7 +37,7 @@ int main() {
     late_waiter.join();                        // late waiter: passed, ready=7
 
     // 验证 3：语义等价 —— wait(old) ≈ while (load() == old) 阻塞
-    //         值回环（ABA）也会醒：比较的是"不等于旧值"，不是"变过几轮"
+    //         值回环（ABA）可能被错过：比较值表示是否不同，不记录变化次数
     std::atomic<int> aba{0};
     aba.store(5);
     aba.store(0);                              // 转一圈回到旧值
@@ -48,26 +45,23 @@ int main() {
 
     std::cout << "===== 2. SYNTAX =====\n";
 
-    // 2.1 真阻塞唤醒：worker 睡到值变；主线程改值 + 唤醒
+    // 2.1 改值并通知：worker 可能先等待，也可能启动时就看到新值，两种都正确
     std::atomic<int> signal{0};
-    std::jthread worker([&](std::stop_token st) {
-        signal.wait(0);                        // 阻塞（不烧 CPU）
+    std::jthread worker([&] {
+        signal.wait(0);                        // 可能先短暂自旋再阻塞，由实现决定
         std::cout << "worker: signal=" << signal.load() << '\n';
-        (void)st;
     });
-    std::this_thread::sleep_for(5ms);          // 确保 worker 已睡下
     signal.store(42);
     signal.notify_one();                       // 唤醒
     worker.join();                             // worker: signal=42 先于此行
 
-    // 2.2 atomic_flag：最小门闩（C++20 默认构造即"关"，ATOMIC_FLAG_INIT 已废弃）
+    // 2.2 atomic_flag：C++20 默认构造为 clear；ATOMIC_FLAG_INIT 已废弃
     std::atomic_flag gate{};                   // clear 态
     gate.test_and_set();                       // 关上：返回旧值 false
     std::jthread opener([&] {
         gate.wait(true);                       // 等到"不再是 true"（有人 clear）
         std::cout << "opener: gate opened\n";
     });
-    std::this_thread::sleep_for(5ms);
     gate.clear();
     gate.notify_one();
     opener.join();
@@ -78,15 +72,16 @@ int main() {
 
     std::cout << "===== 3. APPLICATION =====\n";
 
-    // 3.1 数据就绪握手：data + ready 两原子，免锁免条件变量
-    std::atomic<int> data{0};
+    // 3.1 一次性发布：普通 data 由 ready 的 release/acquire 同步保护
+    // 发布后生产者不再修改 data，消费者也在读取结束后才被 join
+    int data = 0;
     std::atomic<bool> done{false};
     std::jthread consumer([&] {
-        done.wait(false);                      // 等数据就绪
-        std::cout << "consumer: data=" << data.load() << '\n';
+        done.wait(false, std::memory_order_acquire);
+        std::cout << "consumer: data=" << data << '\n';
     });
-    data.store(99);                            // 先放数据
-    done.store(true);                          // 再竖标志（顺序！）
+    data = 99;                                 // 先写数据
+    done.store(true, std::memory_order_release); // 发布数据
     done.notify_one();
     consumer.join();
     std::cout << "main: consumer done\n";
@@ -94,6 +89,7 @@ int main() {
     // 3.2 实战心法（对照 ①②③）：
     //   单值等待用 atomic wait；复杂谓词/多变量还得条件变量
     //   永远"先改值后通知"——丢通知免疫的前提是值先行
-    //   wait 比自旋省 CPU、比条件变量省锁；但通知不计数、不排队
+    //   wait 内置值重查；底层机制不保证无锁，通知也不计数、不排队
+    //   jthread 的 request_stop 不会自动打断 atomic::wait，须另设计停止状态
     return 0;
 }

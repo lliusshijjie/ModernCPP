@@ -30,7 +30,8 @@ int main() {
     year_month_day bad = 2026y / February / 30;
     std::cout << bad.ok() << ' ' << launch.ok() << '\n';       // false true
 
-    // 转成 sys_days 会"顺延归一化"：2026-02-30 -> 03-02（2026 非闰年）
+    // year/month 有效时，超范围的 day 按月首日加 day-1 计算；本例 -> 03-02
+    // year/month 本身无效时结果未指定，不能推广成任意非法字段都能归一化
     std::cout << std::format("{:%Y-%m-%d}",
                              year_month_day{sys_days{bad}}) << '\n';  // 2026-03-02
 
@@ -67,7 +68,8 @@ int main() {
                              zoned_time{"Asia/Shanghai", utc_noon}) << '\n';
     // 2026-11-16 20:00 CST（+8）
 
-    // 3.2 反向：本地时刻 -> UTC（夏令时规则库替你查）
+    // 3.2 反向：本地时刻 -> sys_time；本例没有 DST 歧义
+    // DST 切换附近可能抛 ambiguous_local_time / nonexistent_local_time
     auto sh_local = local_days{2026y / November / 16} + 20h;
     std::cout << std::format("{:%H:%M}",
                              zoned_time{"Asia/Shanghai", sh_local}
@@ -82,6 +84,7 @@ int main() {
     //   日历语义用 year_month_day；算术/存储换 sys_days（天粒度）
     //   months 加法后必查 ok()——"2-31"是合法的中间态不是错误
     //   时区换算交给 zoned_time + IANA 库名，别手写 ±8
-    //   现在时刻跨环境输出不确定——测试用固定 sys_days 时间戳
+    //   固定时间戳可减少环境漂移；命名时区规则仍取决于 tzdata 版本
+    //   sys_time 不计闰秒；涉及闰秒时另用 utc_clock 等接口
     return 0;
 }

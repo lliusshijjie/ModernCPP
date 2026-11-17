@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 struct Window {                       // 聚合：无用户构造函数（02A）
@@ -48,10 +49,10 @@ int main() {
     int a[]{1, 2, 3, 4};
     std::cout << arr_len(a) << '\n';              // 4
 
-    // 验证 3：对比 C++14 泛型 lambda——auto 参数退化成指针，长度丢失
+    // 验证 3：C++14 的 auto& 同样能保留数组；显式形参表让 T/N 更易命名
     auto old_len = [](const auto& r) { return sizeof(r) / sizeof(r[0]); };
-    // 旧式数组尺寸惯用法在 auto&（真引用）下能用，但类型信息仍拿不到：
-    std::cout << old_len(a) << '\n';              // 4（还能算，但拿不到 T 和 N）
+    // const auto& 不退化，decltype(r) 也能配合 traits 取得数组/元素类型：
+    std::cout << old_len(a) << '\n';              // 4（可用 decltype/traits；显式 T、N 更直接）
 
     std::cout << "===== 2. SYNTAX =====\n";
 
@@ -67,7 +68,7 @@ int main() {
 
     // 2.3 模板 lambda 收容器：元素类型 T 直接可用
     auto describe = []<class T>(const std::vector<T>& v) {
-        return std::to_string(v.size()) + " x " + (sizeof(T) == 4 ? "int" : "T");
+        return std::to_string(v.size()) + " x " + (std::is_same_v<T, int> ? "int" : "T");
     };
     std::cout << describe(std::vector<int>{1, 2, 3}) << '\n';   // 3 x int
 
@@ -95,6 +96,6 @@ int main() {
     // 3.3 实战心法（对照 ①②③）：
     //   多字段聚合一律指定式——字段名即文档
     //   要元信息（长度/元素类型）就上模板形参表，别再 auto 猜
-    //   [[likely]] 只标测过的热路径，成对写快慢分支
+    //   [[likely]] 只标测过的路径，无需强制成对标记
     return 0;
 }

@@ -57,15 +57,13 @@ int main() {
 
     std::cout << "===== 2. SYNTAX =====\n";
 
-    // 2.1 瞬态分配铁律（注释保存两个反面教材）：
-    //   反面一：分配逃出常量求值——编译错
-    //     constexpr std::vector<int>* leak() {
-    //         return new std::vector<int>{1};   // new 的结果不能"活着出去"
-    //     }
-    //   反面二：constexpr 变量持有 vector——编译错（g++ 实测报
-    //     "is not a constant expression because it refers to a
-    //      result of 'operator new'"；类型上也是非字面类型）
-    //     constexpr std::vector<int> v{1, 2, 3};
+    // 2.1 瞬态分配：跨函数返回指针本身不是错误，关键是同一次常量求值内释放
+    // constexpr std::vector<int>* make() { return new std::vector<int>{1}; }
+    // constexpr auto leaked = make(); // 错：初始化结束后仍保留动态分配
+    // 若在外层 constexpr 计算中使用 make() 并 delete，则可以合法
+    // constexpr std::vector<int> v{1, 2, 3}; // 错：此对象保留动态分配
+    constexpr std::vector<int> empty;       // 合法：vector 已是字面类型，不需分配
+    static_assert(empty.empty());
 
     // 2.2 拷出模式：vector -> array（字面类型才能进常量语境）
     constexpr auto table = [] {
@@ -91,15 +89,19 @@ int main() {
 
     std::cout << "===== 3. APPLICATION =====\n";
 
-    // 3.1 编译期查表：8 个 CRC8 余式进只读数据（启动零开销）
+    // 3.1 编译期查表：CRC-8（多项式 0x07、MSB-first）的前 8 个表项
     constexpr auto crc8_table = [] {
         std::array<unsigned char, 8> t{};
-        for (int i = 0; i < 8; ++i)
-            t[i] = static_cast<unsigned char>((i % 2) ? 0xB8 : 0x00);
+        for (unsigned i = 0; i < t.size(); ++i) {
+            unsigned crc = i;
+            for (int bit = 0; bit < 8; ++bit)
+                crc = ((crc << 1) ^ ((crc & 0x80u) ? 0x07u : 0u)) & 0xFFu;
+            t[i] = static_cast<unsigned char>(crc);
+        }
         return t;
     }();
-    static_assert(crc8_table[1] == 0xB8);
-    std::cout << +crc8_table[1] << '\n';      // 184
+    static_assert(crc8_table[0] == 0 && crc8_table[1] == 7 && crc8_table[7] == 21);
+    std::cout << +crc8_table[1] << '\n';      // 7
 
     // 3.2 实战心法（对照 ①②③）：
     //   容器在 constexpr 里是"草稿纸"：算完拷出、用完即毁

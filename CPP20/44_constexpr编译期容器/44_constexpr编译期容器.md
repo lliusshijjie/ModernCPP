@@ -24,11 +24,13 @@ C++17 的 constexpr 能算递归、能分支（第 13 课），但**不能分配
 "活着逃出去"（non-transient allocation）。推论三条：
 
 1. `constexpr` 函数内建 vector、push_back、sort，函数返回前销毁——合法
-2. 想把结果**存下来**，必须先拷出到**字面类型**（`std::array`、
-   整数、`string_view`…）——"拷出模式"是本课的核心套路
-3. `constexpr std::vector<int> v{1,2,3};` 作为**变量**直接编译错
-   （g++ 实测：refers to a result of 'operator new'；
-   类型上 vector 也非字面类型）
+2. 若要把分配后的结果存为 constexpr 对象，应转成**不保留该动态分配**的
+   表示，例如 std::array 或整数。string_view 只存引用，若指向临时 string
+   或 vector 的存储，仍然悬垂，不能靠"拷出视图"延长生命周期
+3. C++20 的 vector/string 已可满足**字面类型**要求；问题是具体对象的表示
+   能否成为常量表达式。`constexpr std::vector<int> v{1,2,3};` 因保留动态分配
+   而不合法，但空 vector 的 constexpr 变量可以合法。string 能否直接保存
+   还受长度、SSO、内部指针、对象存储期及实现影响，不能一概而论
 
 ### 1.3 双模红利：编译期校验，运行期复用
 
@@ -48,7 +50,7 @@ constexpr std::array<int, 6> sorted_squares() {
     return r;                                // v 销毁：瞬态合规
 }
 static_assert(sorted_squares()[4] == 25);    // 编译期"单测"
-constexpr auto t = sorted_squares();         // 常量表：进只读数据
+constexpr auto t = sorted_squares();         // 常量表；具体二进制布局由实现决定
 
 // constexpr string：拼接/下标修改/比较
 constexpr std::size_t greet_len() {
@@ -59,15 +61,17 @@ constexpr std::size_t greet_len() {
 }
 
 // constexpr auto bad = new std::vector<int>{1};     // 编译错：分配逃逸
-// constexpr std::vector<int> v{1, 2, 3};            // 编译错：非字面类型
+// constexpr std::vector<int> v{1, 2, 3};            // 编译错：保留了动态分配
+constexpr std::vector<int> empty;                    // 合法：不需要分配存储
 ```
 
 规则细则：
 
-- 拷出目标必须是**字面类型**：`std::array` / 算术 / 枚举 / 引用 /
-  只含字面成员的聚合；`vector`/`string` 本体不行
-- 常量求值里的**未定义行为**（越界、漏析构）会被编译器当场拒绝——
-  这反而是查 bug 利器
+- constexpr 对象既要满足类型要求，也要满足常量表达式的值/指针限制；
+  字面类型并不意味着其所有值都能作为 constexpr 变量。返回视图或引用时
+  必须保证被引用对象仍然存活
+- 必需的常量求值遇到可诊断的越界、除零、有符号溢出或未释放分配等
+  会失败；但不能把常量求值当成能发现所有库契约违例/所有 UB 的完整检查器
 - `constexpr` 成员函数不一定"必须在编译期跑"（那是 consteval，
   第 40 课）；容器成员如 `push_back` 标了 constexpr，运行期照用
 - lambda 立即调用（IIFE）是造 constexpr 表的惯用外壳：`constexpr auto t = []{...}();`
@@ -79,14 +83,15 @@ constexpr std::size_t greet_len() {
 ### 3.1 场景：编译期查表（示例 ③）
 
 CRC 表、单位换算表、游戏数值表——vector 草稿算完拷进 `constexpr array`：
-零启动开销、进只读段（还能被分页共享）。C++17 做同样的事只能手写
-定长数组或模板递归。
+无需运行期执行造表函数；具体数据段与是否实际分配存储由实现决定。
+C++17 也能用 constexpr 循环和 std::array 生成表，只是不能在常量求值时
+使用本课这种动态分配的 vector/string 工作区。
 
 ### 3.2 场景：编译期单测（示例 ②/③）
 
 `static_assert(f(args) == expected)` 一行一个断言，编译一次全验——
-纯函数逻辑（解析、变换、归约）先在编译期钉死，运行期测试只留
-I/O 与状态。
+纯函数逻辑可先用固定案例在编译期验证；运行期输入、边界与资源限制
+仍需相应测试，static_assert 不代表穷举了所有输入。
 
 ### 3.3 最佳实践清单
 
@@ -95,19 +100,19 @@ I/O 与状态。
 3. 纯逻辑函数尽量 constexpr 化——`static_assert` 白拿一层测试
 4. 结果要动态大小？拷出改为**返回给运行期**（函数不留 constexpr 语境
    调用即可），编译期只测正确性
-5. 编译时间也是成本：大体量递归/循环先量一量再上（慢编译的 constexpr
-   是团队之耻）
+5. 编译时间也是成本：大规模递归/循环先测量，并关注编译器的常量求值限额
 
 ## 常见陷阱
 
-1. **`constexpr std::vector` 变量**编译错——不是实现不完整，是
-   "瞬态分配"规则的本意：常量里不允许住着堆内存
-2. 分配**逃出**常量求值（返回 new 出的指针、静态成员里藏 vector）
-   → 编译错："refers to a result of operator new"
+1. **保留动态分配的 constexpr vector** 不合法；空 constexpr vector
+   可以合法。vector 已是可用于常量求值的字面类型，不要混淆类型与对象值
+2. 跨函数返回 new 的指针本身不违法，只要在同一次外层常量求值中 delete；
+   若在 constexpr 对象初始化结束后仍保留该分配，才违反瞬态分配规则
 3. 拷出时**大小对不上**：目标 array 6 格、源 vector 5 个元素，尾巴留 0
    ——示例 ① 的输出尾部就是 0，预测输出时最容易栽在这里
-4. constexpr 函数里调用**未 constexpr 化**的接口（如 `<cstdio>`、
-   `getenv`）→ 该函数永远无法在编译期求值——runtime 路径另拆
+4. constexpr 函数可以在某条运行期路径调用非 constexpr 接口；
+   只有常量求值实际走到该调用时才失败。C++20 定义仍须满足其函数规则，
+   不能据此让所有调用都不可能成为常量表达式
 5. 以为编译器**一定会**在编译期跑：constexpr 只是"可以"；
    要强制用 consteval（第 40 课）或 static_assert 钉住
 6. 函数指针参数收 lambda（示例 2.3 的谓词）注意**返回类型精确匹配**
@@ -134,7 +139,9 @@ g++ -std=c++20 -Wall -Wextra "CPP20/44_constexpr编译期容器/44_constexpr_con
 
 ## 参考
 
-- 提案 P0784R5（常量求值中的 new/分配器）/ P0980R1（constexpr string）/
+- [P0784R7：constexpr 容器与瞬态分配（最终版本）](https://wg21.link/p0784r7)
+- [C++20 草案：常量表达式与分配的限制](https://timsong-cpp.github.io/cppwp/n4861/expr.const)
+- 提案 P0784R7（常量求值中的 new/分配器）/ P0980R1（constexpr string）/
   P1004R1（constexpr vector）
 - cppreference: [常量表达式（constexpr 的容器支持）](https://zh.cppreference.com/w/cpp/language/constant_expression)
 - cppreference: [std::vector 的 constexpr 说明](https://zh.cppreference.com/w/cpp/container/vector)

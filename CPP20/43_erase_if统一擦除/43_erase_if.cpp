@@ -75,7 +75,7 @@ int main() {
 
     std::cout << "===== 3. APPLICATION =====\n";
 
-    // 3.1 订单清理：清空已完成 + 删除指定编号
+    // 3.1 订单清理：清空已完成项，保留未完成项的顺序
     struct Order { int id; std::string state; };
     std::vector<Order> orders{{1, "done"}, {2, "open"},
                               {3, "done"}, {4, "open"}};
@@ -84,7 +84,7 @@ int main() {
     std::cout << orders.size() << ' ' << orders.front().id << ' '
               << orders.back().id << '\n';        // 2 2 4（原序保留）
 
-    // 3.2 词表清洗：去空串 + 去重后统一小写化（去重借 set 一臂）
+    // 3.2 词表清洗：去空串，再按大小写敏感的字典序去重（没有转小写）
     std::vector<std::string> words{"Go", "", "rust", "", "go", "C"};
     std::erase_if(words, [](const std::string& w) { return w.empty(); });
     std::set<std::string> uniq(words.begin(), words.end());
