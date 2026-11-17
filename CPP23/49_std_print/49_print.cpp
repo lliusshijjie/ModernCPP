@@ -9,17 +9,20 @@
 // 先预测每行输出，再运行对照！
 
 #include <cmath>
+#include <cstdio>
+#include <initializer_list>
 #include <print>
 
 int main() {
     std::print("===== 1. PRINCIPLES =====\n");
 
-    // 验证 1：print 一句话 = format 成串 + 一次写出（无 iostream 状态）
+    // 验证 1：格式化与输出合在一个接口；不保证无分配或单次系统调用
     std::print("{} {}\n", "vec", 3);              // vec 3
 
-    // 验证 2：println 自动换行 + 无格式串直印（连 {} 都不用写）
+    // 验证 2：仍传入格式串，只是参数包为空；println 再追加换行
     std::println("auto newline");                 // auto newline
-    std::println();                               // （一个空行）
+    std::println("");                             // 原始 C++23 的空行写法
+    // 无参 println() 来自后续 P3142，本机在 C++23 模式下作为扩展提供
 
     // 验证 3：编译期校验照旧（注释保存编译错示例）
     // std::println("{:d}", "abc");   // 编译错：d 不接受字符串（同第 36 课）
@@ -60,8 +63,8 @@ int main() {
     // sin( 60) = 0.8660
 
     // 3.3 实战心法（对照 ①②③）：
-    //   输出一律 print 家族；printf 与 iostream 双双退役
-    //   错误流显式 stderr；println 不 flush——需要即时性自己处理
+    //   需要格式化输出时可用 print，按项目需求选择其他 I/O 接口
+    //   诊断流显式 stderr；println 不承诺每次刷新，行缓冲/终端路径仍可能刷新
     //   本机链接别忘 -lstdc++exp（Windows 终端支持在该库）
     return 0;
 }

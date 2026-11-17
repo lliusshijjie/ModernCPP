@@ -1,7 +1,7 @@
 // 第 53 课示例：ranges::to 与容器构造（C++23）
 //
 // 结构：① 原理验证 —— 管道终点直接落容器；元素类型推导/显式
-//       ② 语法演示 —— 五种目标容器；split 物化的现代一行版
+//       ② 语法演示 —— 序列与关联容器；split 递归物化
 //       ③ 应用实战 —— 词频统计全管道落地
 //
 // 本机（MSYS2 g++ 15.1.0）编译运行——注意链接 -lstdc++exp：
@@ -9,12 +9,12 @@
 // 先预测每行输出，再运行对照！
 
 #include <algorithm>   // std::ranges::sort
-#include <iostream>
 #include <map>
 #include <print>
 #include <ranges>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -67,31 +67,23 @@ int main() {
     // 2.5 第 34 课 split 物化的现代一行版
     std::string csv = "x,yy,zzz";
     auto tokens = csv | std::views::split(',')
-                  | std::views::transform([](auto&& sub) {
-                        return std::string(sub.begin(), sub.end());
-                    })
-                  | std::ranges::to<std::vector>();
+                  | std::ranges::to<std::vector<std::string>>(); // 递归物化子区间
     std::println("{} {}", tokens.size(), tokens[1]);  // 3 yy
 
     std::print("===== 3. APPLICATION =====\n");
 
     // 3.1 词频统计：切词 -> 落地 -> 计数 -> 排序落地
-    //    注意：普通 lambda 不能接在 | 后面（只有范围适配器闭包可管道）——
+    //    标准 ranges 管道不自动接受任意 lambda，需合适的范围适配器闭包——
     //    落地成容器后再用普通调用
     std::string words = "to be or not to be";
     auto tok = words | std::views::split(' ')
-                | std::views::transform([](auto&& sub) {
-                      return std::string(sub.begin(), sub.end());
-                  })
-                | std::ranges::to<std::vector>();
+                | std::ranges::to<std::vector<std::string>>();
     std::map<std::string, int> freq;
     for (const auto& t : tok) ++freq[t];
     // 注意大坑：map | to<vector> 得到 pair<const string, int>——
-    // const 键不可赋值，直接 sort 编译错！先 transform 成普通 pair
-    auto by_freq = freq | std::views::transform([](const auto& kv) {
-                        return std::pair{kv.first, kv.second};   // 去 const
-                    })
-                  | std::ranges::to<std::vector>();
+    // 默认元素保留 const 键，不能直接 sort；显式指定普通 pair 即可转换
+    auto by_freq = freq
+                  | std::ranges::to<std::vector<std::pair<std::string, int>>>();
     std::ranges::sort(by_freq, [](const auto& x, const auto& y) {
         return x.second != y.second ? x.second > y.second   // 频次降序
                                     : x.first < y.first;    // 同频字母序（保确定）
@@ -102,6 +94,6 @@ int main() {
     // 3.2 实战心法（对照 ①②③）：
     //   管道末端要容器：to 一发；元素类型拿不准就显式写
     //   多趟消费（排序/随机访问）先落地；一趟遍历保持视图
-    //   to 不带 reserve 参数——超大批量仍可手写 reserve 构造
+    //   to 的适用路径会自动 reserve；按实际构造路径/范围大小能力测量分配
     return 0;
 }

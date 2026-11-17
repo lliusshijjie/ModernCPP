@@ -8,26 +8,34 @@
 //   g++ -std=c++23 -Wall -Wextra 50_expected.cpp -o run -lstdc++exp && ./run
 // 先预测每行输出，再运行对照！
 
+#include <charconv>
 #include <expected>
-#include <iostream>
 #include <print>
-#include <string>
 #include <string_view>
+#include <system_error>
 
-enum class ParseErr { empty, negative, too_big };
+enum class ParseErr { empty, bad, negative, too_small, too_big };
 
-// ① 基础形态：expected<值, 错误>
+// ① 完整解析端口 1..65535：允许前导零，不允许符号/空白/尾随文本
 [[nodiscard]] std::expected<int, ParseErr> parse_port(std::string_view s) {
     if (s.empty()) return std::unexpected(ParseErr::empty);
-    if (s[0] == '-') return std::unexpected(ParseErr::negative);
-    int v = std::stoi(std::string(s));
-    if (v > 65535) return std::unexpected(ParseErr::too_big);
+    if (s.front() == '-') return std::unexpected(ParseErr::negative);
+    if (s.front() < '0' || s.front() > '9') return std::unexpected(ParseErr::bad);
+    int v = 0;
+    auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+    if (end != s.data() + s.size() || ec == std::errc::invalid_argument)
+        return std::unexpected(ParseErr::bad);
+    if (ec == std::errc::result_out_of_range || v > 65535)
+        return std::unexpected(ParseErr::too_big);
+    if (v < 1) return std::unexpected(ParseErr::too_small);
     return v;                                    // 值侧：隐式构造
 }
 
 const char* name(ParseErr e) {
     switch (e) {
     case ParseErr::empty:    return "empty";
+    case ParseErr::bad:      return "bad";
+    case ParseErr::too_small: return "too_small";
     case ParseErr::negative: return "negative";
     case ParseErr::too_big:  return "too_big";
     }
@@ -37,7 +45,7 @@ const char* name(ParseErr e) {
 int main() {
     std::print("===== 1. PRINCIPLES =====\n");
 
-    // 验证 1：成功/失败两个入口，类型系统逼你拆包
+    // 验证 1：成功/失败两个入口；仍需调用者主动检查和处理
     auto ok = parse_port("8080");
     auto bad = parse_port("-1");
     std::println("{} {} {}", ok.has_value(), ok.value(),
@@ -70,7 +78,7 @@ int main() {
     auto with_log = pipeline("-5").or_else(
         [](ParseErr e) -> std::expected<int, ParseErr> {
             std::println("log: parse failed ({})", name(e));
-            return std::unexpected(e);                      // 处理后原样上抛
+            return std::unexpected(e);                      // 记录后返回原错误，不是 throw
         });
     std::println("{} {}", with_log.has_value(),
                  static_cast<int>(with_log.error() == ParseErr::negative));
@@ -79,7 +87,8 @@ int main() {
 
     // 2.3 void 值侧：只要"成功/失败+原因"
     auto check = [](int p) -> std::expected<void, ParseErr> {
-        if (p < 1024) return std::unexpected(ParseErr::too_big);
+        if (p < 1024) return std::unexpected(ParseErr::too_small);
+        if (p > 65535) return std::unexpected(ParseErr::too_big);
         return {};                                          // 空值侧成功
     };
     std::println("{} {}", check(80).has_value(),
@@ -97,6 +106,9 @@ int main() {
     show("443");        // ok: 443
     show("70000");      // err: too_big (70000)
     show("");           // err: empty ()
+    show("8080xyz");    // err: bad (8080xyz)，不能只接受数字前缀
+    show("0");          // err: too_small (0)
+    show("999999999999999999999"); // err: too_big，from_chars 报范围错误而非抛出
 
     // 3.2 实战心法（对照 ①②③）：
     //   可预期失败 → expected + [[nodiscard]]；真异常 → 异常

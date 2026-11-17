@@ -1,137 +1,132 @@
 # 第 50 课 · std::expected：错误处理新范式（C++23）
 
-> 所需标准：**C++23**（`-std=c++23`；本机同前课需 `-lstdc++exp` 链接旗子——
-> CPP23 篇示例统一带上）｜ 讲解：本文件 ｜ 独立代码：`50_expected.cpp`
-> 前置：第 16 课（optional——"可能没有值"的单形态前辈）；第 19 课（三者取舍）
+> 所需标准：**C++23**（`-std=c++23`）｜ 独立代码：`50_expected.cpp`
+> 本机示例使用 print，因而还需 -lstdc++exp；expected 本身不要求该链接库。
+> 前置：第 16 课（optional）；第 19 课（类型与语义的取舍）
 
 ## 一、底层原理
 
-### 1.1 第四条错误处理之路
+### 1.1 用类型表示“值或错误”
 
-C++ 此前三条路各有残缺：
+`std::expected<T,E>` 成功时保存 T，失败时保存 E；`expected<void,E>` 表示
+无返回数据的成功或错误。它与 optional 的区别是失败侧包含原因。
 
-| 方式 | 失败表达 | 调用方强制检查 | 携带错误信息 | 成本 |
-|---|---|---|---|---|
-| 异常 | throw | 否（不接就穿透） | 任意类型 | 零成本模型 + 栈展开贵 |
-| 错误码/enum | 返回值 | **否**（忘查=静默错） | 需另开 out 参 | 低 |
-| optional | nullopt | **弱**（得主动查） | **无**（只有"没有"） | 低 |
-| **expected<T,E>** | unexpected | **类型系统逼你拆包** | **任意 E** | 低（值语义） |
+| 方式 | 失败表达 | 检查责任 | 信息与成本 |
+|---|---|---|---|
+| 异常 | throw | 可在合适层捕获；未捕获会终止 | 类型化信息，成本依 ABI、实现及失败频率而定 |
+| 错误码 | 返回状态，可配 out 参数 | 调用者检查 | 状态值本身也可携带领域信息 |
+| optional | nullopt | 调用者检查 | 不保存错误原因 |
+| expected | unexpected / unexpect | 调用者检查或组合传播 | 值语义，大小与传递成本取决于 T/E |
 
-`std::expected<T, E>`（P0323，源自 Rust 的 `Result` / Hazard 模型）：
-**要么是 T，要么是 E，二选一且必须显式取出**——
-optional 的"有/无"升级为"值/错误原因"。
+expected 不会强迫调用者检查，也没有“忽略就必定报错”的语言机制。
+为返回结果的函数显式加 `[[nodiscard]]` 可请求编译器诊断，但警告也不等于
+强制处理。标准并不保证 expected 类自身具有 nodiscard 属性。
 
-### 1.2 值语义的胜利：错误路径不上栈
+### 1.2 错误作为返回值，不等于整个函数不抛异常
 
-异常的失败传播靠栈展开（且不可预测何时抛）；expected 把错误当
-**返回值**搬运：拷贝/移动即传递，`[[nodiscard]]` 加持下忘记处理
-会得到编译警告。整条错误链没有隐藏控制流——**读代码就是读数据流**。
+expected 可在普通返回路径传播可预期失败，不必为这一失败执行栈展开。
+但 T/E 的构造、复制、移动、分配以及回调仍可能抛异常；调用 value() 取错误
+状态也会抛 bad_expected_access<E>。是否 noexcept 必须看整个实现。
 
-### 1.3 单子式组合：错误自动短路
+本课用 from_chars 严格解析十进制端口 **1..65535**：接受前导零，不接受
+正负号、空白或尾随文本（负号单独分类为 negative）。不要用未经检查的 stoi
+假装实现相同契约：stoi 可接受前缀，还可能抛 invalid_argument/out_of_range。
 
+### 1.3 单子式组合与恢复
+
+```text
+parse(s)                  expected<int,Err>
+  .and_then(validate)     成功时调用返回 expected 的函数；错误原样传播
+  .transform(convert)     成功时变换值；错误不变
+  .or_else(recover)       失败时调用恢复/转换函数；也可返回成功值
+  .value_or(fallback)     末端取值或丢弃原因使用默认值
 ```
-parse(s)            expected<int, Err>
-  .and_then(validate)   值 → 继续（返回 expected）；错误 → 原样透传
-  .transform(double)    只变换成功值，错误不动
-  .or_else(log_it)      只处理错误侧
-  .value_or(0)          拆包兜底
-```
 
-链上任何一环出错，后续 `and_then/transform` 全部跳过，
-错误直通末端——**没有一层层 if 也没有 try 块**（示例 ②）。
+and_then 的结果必须仍是 expected 且错误类型相同；or_else 的结果也必须是
+expected 且成功值类型相同。transform_error 可变换错误类型。or_else 恢复成功
+后，后续成功侧操作会继续，因此“错误后永远跳过所有后续操作”不是通用规则。
 
 ### 1.4 与 optional/异常的分工
 
-- **可预期的失败**（解析失败、未找到、校验不过）→ expected：
-  它是流程的一部分，不是"异常状况"
-- **不可预期/不变量破坏**（内存耗尽、前置条件违约）→ 异常：
-  expected 强迫每层都接反而污染
-- "只关心有没有、没有原因" → optional 仍然够用（第 19 课结论不变）
+需要让调用者按原因分支、失败属于常见流程时可用 expected；只关心有无时
+optional 已足够。异常可把失败传播到合适的处理层。不能只按“是否可预期”
+机械分类：API 约定、失败频率、异常策略、恢复点及 ABI 都会影响选择。
+前置条件违约也不自动等于应当抛异常，须遵守相应接口契约。
 
 ## 二、具体语法
 
 ```cpp
+#include <charconv>
 #include <expected>
+#include <string_view>
 
-std::expected<int, std::string> parse_pos(std::string_view s) {
-    if (s.empty())  return std::unexpected("empty");
-    if (s[0] == '-') return std::unexpected("negative");
-    return std::stoi(std::string(s));
+enum class Err { bad, range };
+[[nodiscard]] std::expected<int,Err> parse_port(std::string_view s) {
+    if (s.empty() || s.front() < '0' || s.front() > '9')
+        return std::unexpected(Err::bad);
+    int n = 0;
+    auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), n);
+    if (end != s.data() + s.size()) return std::unexpected(Err::bad);
+    if (ec == std::errc::result_out_of_range || n < 1 || n > 65535)
+        return std::unexpected(Err::range);
+    if (ec != std::errc{}) return std::unexpected(Err::bad);
+    return n;
 }
 
-auto r = parse_pos("42");
-r.has_value();  r.value();        // true / 42（无值时 value() 抛
-                                  // bad_expected_access<E>）
-r.error();                        // 错误侧（有值时 UB 级契约违约）
-r.value_or(-1);                   // 拆包兜底
-*r;                               // 有值侧解引用（同 optional）
-
-// 单子组合（错误自动短路）：
-auto out = parse_pos("7")
-    .transform([](int x) { return x * 2; })
-    .and_then([](int x) -> std::expected<int, std::string> {
-        return x > 10 ? x : std::unexpected("too small");
-    });
-
-std::expected<void, E> f();       // 只要"成功/失败+原因"时 T 用 void
+auto r = parse_port("42");
+if (r) { /* *r 或 r.value() */ } else { /* r.error() */ }
+auto out = parse_port("7").and_then([](int n) -> std::expected<int,Err> {
+    if (n <= 10) return std::unexpected(Err::range);
+    return n * 2;
+});
 ```
+
+不能用 `condition ? int_value : std::unexpected(...)` 代替这里的 if/return：
+这两个操作数不能因为函数返回 expected 就自动成为同一种条件表达式类型。
 
 规则细则：
 
-- `unexpected<E>{e}` 是**构造错误侧**的辅助类型（不能直接当返回值用，
-  要转成 expected——隐式转换在 return 处发生）
-- `error()` 在**有值**时调用是未定义契约（libstdc++ 可能断言）——
-  先 `has_value()` 分流
-- `operator*`/`operator->` 访问值侧，不检查（同 optional 的
-  "信自己"通道）
-- expected 支持比较（值侧相等 / 错误侧相等）、可 `[[nodiscard]]`
-- `transform_error` 变换错误类型；链式换错误类型要显式对齐
-- E 建议**轻量**（enum / 错误码 / string_view）：expected 靠值
-  返回，E 又大又贵就失去意义
+- `unexpected(e)` 构造错误包装；返回类型为 expected 时可在 return 处转换。
+  也可 `expected<T,E>{std::unexpect, error_args...}` 原地构造错误侧。
+- `*r` / `r->` 要求有值，error() 要求无值，违反前提在 C++23 中是 UB；
+  value() 在无值时抛异常，且有相应错误类型可复制等要求。
+- T 通常为对象类型或 void；E 须符合非数组、非 cv 对象等要求，不能是 void
+  或引用。“任意 E”不包括所有 C++ 类型。
+- 默认构造在 T 可默认构造时是成功状态；`expected<void,E>{}` 也是成功。
+- E 为 enum、拥有型错误结构或 string 都可，按错误信息与成本选择。
+  string_view 等借用型错误必须保证其数据寿命，不能引用局部错误文本。
 
 ## 三、实际应用与最佳实践
 
-### 3.1 场景：解析与校验流水线（示例 ②）
+### 3.1 场景：解析与校验流水线
 
-读配置 → 校验范围 → 换算单位，三步都可能失败：
-`and_then` 串起来错误自动短路，**任何一步失败都直达终点错误侧**——
-与嵌套 if / 层层 try 对比，代码形状是线性的。
+示例先解析，再变换、校验范围、记录错误。格式不合法、尾随字符、数字过大和
+零端口都通过错误值返回，而不是漏到未说明的异常路径。格式化日志本身仍可抛异常。
 
-### 3.2 场景：替代"错误码 + out 参"的 C 风格接口（示例 ③）
+### 3.2 场景：替代状态码与输出参数
 
-`bool get_port(int& out)` 的现代形态：
-`expected<Port, ParseError> get_port()`——
-返回值即全部信息，`[[nodiscard]]` 下忘查编译器直接警告。
+expected<Port,ParseError> 把成功值和失败原因绑定在同一结果中；调用者通过
+检查或组合选择处理方式。为公共结果函数加 nodiscard，不能依赖类型系统代查。
 
 ### 3.3 最佳实践清单
 
-1. 可预期失败一律 `[[nodiscard]] auto f() -> expected<T, Err>`
-2. 错误类型定成**项目统一 enum/struct**（别随手 string）——
-   顶层还能 `switch` 分发
-3. 链式优先 `and_then/transform`，别拆包再装包；
-   末端才 `value_or` / 检查
-4. 与异常划清边界：库的可预期失败给 expected；
-   "真异常"（bad_alloc 级）继续让异常穿透
-5. 性能敏感处避免 expected<pair 大结构>——错误侧与值侧
-   共享存储布局，值类型过大整体变胖（union 语义）
+1. 明确输入语法、有效范围和失败分类，避免返回类型与实际行为不一致。
+2. and_then 用于会失败的后续步骤，transform 用于值变换，or_else 用于错误侧。
+3. 末端按需检查或 value_or；默认值参数本身会先求值，昂贵兜底可显式分支。
+4. 错误类型要有适当所有权；大对象影响布局和搬运，不能只凭类型名推断成本。
+5. expected 只描述已建模的返回失败，另外说明函数可能抛出的异常。
 
 ## 常见陷阱
 
-1. **有值时调 error()**：契约违约（UB/断言）——error() 只在
-   `!has_value()` 的分支里用
-2. `return std::unexpected(...)` 写成 `return {..}`：
-   花括号直构的是**值侧**——错误悄悄变成了"值"
-3. and_then 的可调用**必须返回 expected**（返回裸值编译错）；
-   只想变值用 transform——两者别混
-4. `*r` 不检查：同 optional，无值解引用是 UB——不确定时 value()
-   （抛异常）或先 has_value()
-5. 忘 `[[nodiscard]]`：错误被静默吞掉，expected 的最大保险失效
-6. E 选 std::string 又到处拷：错误路径每次传值都深拷贝——
-   轻量 E 或引用语义（错误码 + 全局错误表）
+1. 有值时 error()、无值时解引用，都会违反访问前提。
+2. `return {"x"}` 可能编译失败，也可能构造成功值，取决于 T；它不表示错误。
+   构造错误请明确写 unexpected 或 unexpect。
+3. and_then 返回裸值或不同 E 不合法；只想变值用 transform。
+4. 使用 string 错误并不意味着每次必然深拷贝：右值可移动，但布局和分配仍有成本。
+5. 忽略 expected 完全可能；nodiscard 是接口的额外诊断约定。
+6. stoi 返回值未经完整消费检查，不等于严格解析整个字符串。
 
 ## 完整示例
-
-见 `50_expected.cpp`，按 ① 原理验证 → ② 语法演示 → ③ 应用实战 三段组织：
 
 ```bash
 g++ -std=c++23 -Wall -Wextra "CPP23/50_std_expected/50_expected.cpp" -o run -lstdc++exp && ./run
@@ -139,18 +134,15 @@ g++ -std=c++23 -Wall -Wextra "CPP23/50_std_expected/50_expected.cpp" -o run -lst
 
 ## 练习
 
-1. 写 `expected<vector<int>, Err> parse_list(string_view "1,2,3")`：
-   逐段 stoi，任何一段失败整链失败（and_then/transform 组合）。
-2. 复现陷阱 2：把 `return std::unexpected("x")` 误写成
-   `return {"x"}`，观察类型系统如何反应。
-3. 把第 16 课练习里的 optional 接口升级为 expected（带上失败原因），
-   调用方打印原因而非静默兜底。
-4. 性能小实验：expected<double, BigErr{char[256]}> 与
-   expected<double, ErrCode{enum}> 各在循环里传递百万次，
-   对比耗时并解释。
+1. 用 from_chars 写 parse_list，定义空段、尾随字符和溢出的错误规则。
+2. 分别在 expected<int,string> 与 expected<string,string> 函数中尝试
+   `return {"x"}`，比较不合法与成功值构造，再改为 unexpected。
+3. 写一个 or_else 恢复成功的链，验证后续 transform 会执行。
+4. 比较大小不同的错误类型时，记录 sizeof、复制/移动次数与实际耗时。
 
 ## 参考
 
-- 提案 P0323R12（std::expected）/ P2505R5（单子式操作）
-- cppreference: [std::expected](https://zh.cppreference.com/w/cpp/utility/expected)
-- cppreference: [std::unexpected](https://zh.cppreference.com/w/cpp/utility/expected/unexpected)
+- [C++23 草案：expected 的类型与状态](https://timsong-cpp.github.io/cppwp/n4950/expected)
+- [C++23 草案：访问前提与 value 的异常](https://timsong-cpp.github.io/cppwp/n4950/expected.object.obs)
+- [C++23 草案：单子操作的类型要求](https://timsong-cpp.github.io/cppwp/n4950/expected.object.monadic)
+- 提案 P0323R12（expected）/ P2505R5（单子操作）
