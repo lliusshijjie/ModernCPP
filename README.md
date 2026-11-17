@@ -216,7 +216,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | # | 主题 | 状态 | 日期 |
 |---|------|------|------|
 | 49 | std::print / std::println | ✅ | 2026-12-03 |
-| 50 | std::expected：错误处理新范式 | ⬜ | |
+| 50 | std::expected：错误处理新范式 | ✅ | 2026-12-04 |
 | 51 | 综合：异常 / 错误码 / expected 的取舍 | ⬜ | |
 | 52 | deducing this：显式对象形参 | ⬜ | |
 | 53 | ranges::to 与容器构造 | ⬜ | |
