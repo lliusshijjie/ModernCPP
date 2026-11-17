@@ -206,7 +206,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 42 | <bit> 家族：popcount、bit_cast、endian | ✅ | 2026-11-26 |
 | 43 | std::erase / std::erase_if 统一擦除 | ✅ | 2026-11-27 |
 | 44 | constexpr string/vector：编译期容器 | ✅ | 2026-11-28 |
-| 45 | std::atomic 的等待与通知 | ⬜ | |
+| 45 | std::atomic 的等待与通知 | ✅ | 2026-11-29 |
 | 46 | char8_t 与 Unicode 基础 | ⬜ | |
 | 47 | Modules 模块入门 | ⬜ | |
 | 48 | chrono 日历与时区 | ⬜ | |
