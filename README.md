@@ -41,6 +41,7 @@ CPP17/                                     —— 第二部分（第 11–30 课
     vending_machine.cpp                    —— 第 11～17 课：迷你自动售货机
     document_audit.cpp                     —— 第 11～20 课文档引用审计器
 CPP20/                                     —— 第三部分（第 31–48 课）
+  practice/TraceLab20/                     —— 第 31～48 课综合项目：本地日志分析引擎
 CPP23/                                     —— 第四部分（第 49–60 课）
 ```
 
@@ -194,6 +195,8 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 30A | [字节编码与插入失败恢复](CPP17/补充知识点/30_补充A_字节编码与插入失败恢复/30_补充A_字节编码与插入失败恢复.md) | 📘 | 2026-11-14 |
 
 ### CPP20/（第 31–48 课）
+
+综合练习 [TraceLab20](CPP20/practice/TraceLab20/README.md) 将协程、Ranges、可取消的工作线程、时区与模块用于同一套日志分析流程。[逐步学习指南](CPP20/practice/TraceLab20/STUDY_GUIDE.md)
 
 | # | 主题 | 状态 | 日期 |
 |---|------|------|------|

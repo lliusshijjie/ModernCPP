@@ -1,0 +1,21 @@
+COMPLETE
+query level=TRACE components=* flags=0 from=* to=* top=20 order=earliest keyword=
+processed=4 invalid=0 matched=4 flag_bits=4
+timed=3 total_us=200000 min_us=0 max_us=150000 mean_us=66666.67
+range 2026-11-18T01:30:00.000000Z .. 2026-11-18T01:31:01.000000Z
+level INFO  1
+level WARN  1
+level ERROR 2
+component network 2
+component policy 2
+minute 2026-11-18T01:30:00.000000Z 2
+minute 2026-11-18T01:31:00.000000Z 2
+[timeline]
+2026-11-18T01:30:00.000000Z INFO policy pid=12 flags=0 us=- <demo>:1 策略已加载
+2026-11-18T01:30:59.900000Z WARN network pid=45 flags=1 us=0 <demo>:3 等待响应
+2026-11-18T01:31:01.000000Z ERROR network pid=45 flags=3 us=150000 <demo>:2 连接重试
+2026-11-18T01:31:01.000000Z ERROR policy pid=12 flags=4 us=50000 <demo>:4 请求超时
+[slowest]
+2026-11-18T01:31:01.000000Z ERROR network pid=45 flags=3 us=150000 <demo>:2 连接重试
+2026-11-18T01:31:01.000000Z ERROR policy pid=12 flags=4 us=50000 <demo>:4 请求超时
+2026-11-18T01:30:59.900000Z WARN network pid=45 flags=1 us=0 <demo>:3 等待响应
