@@ -226,7 +226,7 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 52 | deducing this：显式对象形参 | ✅ | 2026-12-06 |
 | 53 | ranges::to 与容器构造 | ✅ | 2026-12-07 |
 | 54 | std::generator 与惰性序列 | ✅ | 2026-12-08 |
-| 55 | std::mdspan 多维数组视图 | ⬜ | |
+| 55 | std::mdspan 多维数组视图 | ✅ | 2026-12-09 |
 | 56 | 标准库拾遗：string::contains、move_only_function、stacktrace | ⬜ | |
 | 57 | std::flat_map / flat_set | ⬜ | |
 | 58 | 语言小件合辑：if consteval、static operator()、多维下标 | ⬜ | |
