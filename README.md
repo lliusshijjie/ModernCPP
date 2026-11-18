@@ -229,6 +229,6 @@ clang++ -std=c++14 -Wall "CPP14/01_泛型lambda与初始化捕获/01_generic_lam
 | 55 | std::mdspan 多维数组视图 | ✅ | 2026-12-09 |
 | 56 | 标准库拾遗：string::contains、move_only_function、stacktrace | ✅ | 2026-12-10 |
 | 57 | std::flat_map / flat_set | ✅ | 2026-12-11 |
-| 58 | 语言小件合辑：if consteval、static operator()、多维下标 | ⬜ | |
+| 58 | 语言小件合辑：if consteval、static operator()、多维下标 | ✅ | 2026-12-12 |
 | 59 | std::format 的 C++23 增强：范围与指针格式化 | ⬜ | |
 | 60 | C++26 前瞻与课程总结（pack indexing、contracts、reflection） | ⬜ | |
