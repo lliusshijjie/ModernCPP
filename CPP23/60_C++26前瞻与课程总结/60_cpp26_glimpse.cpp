@@ -22,12 +22,12 @@ void set_port(int);
 void set_port(int) { /* 本体 */ }
 void set_port(double) = delete("port must be int; use set_port(int)");
 
-// ③ 已标准化但本机 g++ 15 未实现（如实标注，仅列清单）：
-//   - 反射（P2996）：reify/info 一族，模板元编程的换代
+// ③ 已纳入 C++26 工作草案、但本机 GCC 15.1 尚未提供下列完整设施（如实标注，仅列清单）：
+//   - 反射（P2996）：^^、std::meta::info 与拼接语法，编译期反射
 //   - 契约（P2900）：pre/post/contract_assert 运行时检查设施
 //   - std::execution（P2300）：结构化异步（senders/receivers）
-//   - hazard_pointer / rcu（P2530/P2545）：无锁读取原语
-//   - std::inplace_vector（P0843）：栈上定长 vector
+//   - hazard_pointer / rcu（P2530/P2545）：并发内存回收设施（不等于所有操作均无锁）
+//   - std::inplace_vector（P0843）：对象内嵌存储、容量固定而 size 可变的 vector（不限定在栈上）
 
 int main() {
     // ① 包索引：第 03 课 integer_sequence 时代的技巧（递归/特化

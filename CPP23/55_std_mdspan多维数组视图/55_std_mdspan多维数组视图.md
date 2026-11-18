@@ -1,139 +1,125 @@
 # 第 55 课 · std::mdspan 多维数组视图（C++23）
 
-> 所需标准：**C++23**（`-std=c++23`）｜ 讲解：本文件 ｜ 独立代码：`55_mdspan.cpp`
-> ⚠ 本机 g++ 15.1.0（MSYS2）**尚无 `<mdspan>`**（libstdc++ 未实现）——
-> 按课程约定，示例以**手写等价物 MdView**（接口对齐
-> `std::mdspan<T, extents, layout_right>` 的核心面）演示，
-> 并在文中如实标注；生产环境可换 MSVC / 含 mdspan 的标准库 /
-> kokkos-mdspan 参考实现，用法一致
-> 前置：第 37 课（std::span——mdspan 是它的多维推广）
+> 标准：C++23；代码：`55_mdspan.cpp`；前置：第 37 课 `span`。
+> 本机 GCC 15.1.0/libstdc++ 没有 `<mdspan>`，示例启用二维教学类 `MdView`。
+> 检测到标准头与 `__cpp_lib_mdspan >= 202207L` 时，同一示例使用真实 `std::mdspan`。
+> 教学类只模拟动态二维、步长与指针访问，不是标准类型的等价实现。
 
 ## 一、底层原理
 
-### 1.1 多维数据的"形状"该住在哪里
+### 1.1 数据、形状、映射、访问器
 
-图像、矩阵、张量的存储几乎都是**一维连续块**（vector/裸数组），
-"2 行 3 列"只是解释方式。旧世界两种坏答案：
+`mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>` 将多维下标映射到存储。
+它不拥有元素；默认访问器使用指针，但自定义访问器还能支持其他数据句柄和访问方式。
+不能把所有 mdspan 都限定为连续数组；带步长的子块可能存在间隙。
 
-- **形状硬编码在算法里**：`buf[r * cols + c]` 满天飞——
-  cols 改名/传错，越界与错位静默发生
-- **为每个形状定义包装类**：Matrix2x3、Image、Tensor……
-  类型爆炸，算法无法泛化
+默认 `layout_right` 的二维映射为 `r * cols + c`，最右维步长为 1；
+`layout_left` 为 `c * rows + r`，最左维步长为 1；`layout_stride` 显式保存各维步长。
+`size()` 是逻辑元素数量，带间隙的映射所需存储跨度可能更大。
 
-**mdspan**（P0009，源自 Kokkos）给出正解：
-**span（非拥有连续视图）+ extents（形状）+ layout（下标映射）**
-三位一体。"数据在哪、什么形状、怎么算偏移"全部显式参数化。
+### 1.2 标准下标是 `m[r, c]`
 
-### 1.2 layout：同一个块，两种读法
+**C++23 的 `std::mdspan` 使用多参数 `operator[]`，没有标准 `operator()` 下标。**
+早期提案或第三方移植可能提供圆括号接口，需要按版本区分。
+内建数组和 `vector` 没有二维下标：`raw[i, j]` 在标准 C++23 中不合法，
+更早版本才把顶层逗号当作逗号表达式（C++20 已弃用）。GCC 接受旧写法可能是兼容扩展。
 
-- `layout_right`（行主序 / C 惯例）：`offset = r * cols + c`
-- `layout_left`（列主序 / Fortran、BLAS 惯例）：`offset = c * rows + r`
+### 1.3 形状类型带索引类型
 
-数学库要 Fortran 布局、图像管线是行主序——mdspan 让**同一块内存**
-按不同布局被"看"，数据一个字节都不搬。转置视图 = 换映射视角
-（示例 ②）。
+```cpp
+using Fixed = std::extents<std::size_t, 2, 3>;
+using Mixed = std::extents<std::size_t, std::dynamic_extent, 3>;
+using Dynamic2D = std::dextents<std::size_t, 2>;
+```
 
-### 1.3 operator() 而不是 operator[]：历史包袱的教训
-
-C 里 `m[i, j]` 不是二维下标——**逗号运算符**取后者（`m[j]`）。
-C++23 虽然允许多参 `operator[]`（第 58 课），但 mdspan 仍然选择
-`m(i, j)` 函数调用语法：所有容器/所有标准一致、无逗号歧义、
-还能与数学记法对齐（示例 ① 故意踩这个坑）。
-
-### 1.4 extents：静态与动态混合
-
-`extents<2, 3>` 形状编译期定死（更快的偏移计算）；
-`extents<dynamic_extent, 3>` 行数运行期、列数编译期——
-"通道数固定 3、样本数不定"这类半固定形状表达力拉满。
-（手写版只演示全动态；标准版这才是精华。）
+不能省略 `extents` 或 `dextents` 的第一个类型参数。
+静态形状让部分计算可在编译期完成，但不承诺总比动态形状更快。
+标准类型的 `Extents` 是必需模板参数，不能直接把 `mdspan<T>` 当完整类型。
 
 ## 二、具体语法
 
+以下是标准 C++23 写法（需要支持 `<mdspan>` 的标准库）：
+
 ```cpp
-#include <mdspan>                                  // 本机暂缺，见文件头说明
+#include <array>
+#include <cstddef>
+#include <mdspan>
+#include <vector>
 
-std::vector<int> buf{1,2,3,4,5,6};
-std::mdspan m(buf.data(), 2, 3);                   // 全动态 2x3，行主序
+std::vector<int> buf{1, 2, 3, 4, 5, 6};
+std::mdspan m(buf.data(), 2, 3);                    // CTAD：动态二维、layout_right
+m[0, 1] = 20;
+std::mdspan<int, std::extents<std::size_t, 2, 3>> fixed(buf.data());
+std::mdspan<int, std::dextents<std::size_t, 2>, std::layout_left>
+    transposed(buf.data(), 3, 2);                  // 形状也交换，才对应转置
+// transposed[c, r] == m[r, c]
 
-m(0, 0);  m(1, 2);                                 // 函数调用下标
-m.extent(0);  m.extent(1);                         // 各维长度
-m.stride(0);                                       // 跨步
-m.data_handle();                                   // 底层指针（= data()）
-m.size();                                          // 元素总数
-
-std::mdspan<int, std::extents<2, 3>> fixed{...};   // 静态形状
-std::mdspan<int, std::dextents<2>, std::layout_left>
-    col_major{...};                                // 列主序视图
-auto sub = std::submdspan(m, {1, 2}, {0, 3});      // 子块视图（P2630）
+using E = std::dextents<std::size_t, 2>;
+using M = std::layout_stride::mapping<E>;
+std::mdspan<int, E, std::layout_stride> sub{
+    buf.data() + 1, M{E{2, 2}, std::array<std::size_t, 2>{3, 1}}};
+// 子块为 20 3 / 5 6，行步长仍是原矩阵的 3。
 ```
 
-规则细则：
+`extent(d)` 查各维长度，`stride(d)` 查可步长映射的步长，`data_handle()` 返回访问器的数据句柄，
+`mapping()` 与 `accessor()` 分别提供映射与访问器。默认句柄是指针，不能泛化成所有类型都有 `data()`。
+mdspan 没有标准 `begin/end`，本身不满足 ranges 的 `range` 概念，也不是容器。
 
-- mdspan **不拥有**数据：生命周期与 span 同规（第 37 课悬垂规则照搬）
-- `operator()` 不查边界；越界 UB——形状自查（或 debug 断言）自理
-- 元素要求：连续存储的"类 span"——vector/data()/数组均可接入
-- 拷贝便宜（指针 + 形状 + 映射），按值传参
-- `submdspan` 是配套切片（C++23 标准，本机同缺）——
-  手写版用"指针偏移 + 新形状"模拟（示例 2.4）
+`const mdspan<int, E>` 固定视图对象，仍可以修改 `int`；只读元素要写 `mdspan<const int, E>`。
+默认访问器下 `operator[]` 自身为 const，返回类型取决于元素类型。
 
 ## 三、实际应用与最佳实践
 
-### 3.1 场景：科学计算与图像处理（示例 ③）
+### 3.1 子块必须保留原步长
 
-卷积窗口、行/列统计、分块处理——算法写"语义下标"，
-形状由视图携带：换图像尺寸不改算法，换布局不改数据。
+从 2×3 矩阵取右侧 2×2 子块时，第一行和第二行的起点仍相差 3 个元素。
+只做“偏移指针 + 新行列数”并按紧密 2×2 访问会错误地读到中间元素。
+示例用 `layout_stride` 或教学类中的两维步长表达这一点。
 
-### 3.2 场景：与 C/BLAS 库交互
+`std::submdspan` 的标准归属是 **C++26**，不是 C++23。
+C++23 可手动组合偏移、extents 和映射；第三方库提供的切片接口须按其文档使用。
 
-`layout_left` 视图直接喂 Fortran 系库（LAPACK），
-`layout_right` 对接 C 系——边界处零拷贝零转换（MD 速览）。
+### 3.2 转置与外部库
 
-### 3.3 最佳实践清单
+转置应同时交换形状与对应步长。把同样的 2×3 形状从 right 换成 left 只是另一种解释，
+通常不是原矩阵的转置。映射不会搬动数据，也不会自动把错误布局变正确。
+调用 BLAS/LAPACK 还要传符合该 API 的指针、维度和 leading dimension，
+不能直接把 mdspan 对象当作 C/Fortran 形参。
 
-1. 多维算法签名收 `mdspan<T>`（或泛型 `mdspan` 概念），
-   别收"裸指针 + rows + cols"三件套
-2. 形状能编译期定的用静态 extents——偏移计算可被优化成乘法常数
-3. 视图不拥有：底层 vector 扩容/销毁后重建 mdspan（第 37 课心法）
-4. 跨语言边界优先选对 layout（right/left），别事后再转置大块
-5. 本机暂无 <mdspan> 时：手写等价物或 kokkos/mdspan 参考实现
-   填缝，接口按标准写，迁移零成本
+### 3.3 生命周期与前置条件
+
+底层存储必须存在，且覆盖 `mapping().required_span_size()` 所需的访问区域。
+mdspan 无法仅凭指针检查分配长度；默认访问器的下标没有抛出越界异常的保证。
+形状、步长与索引应满足各自前置条件，维度乘积和偏移必须可表示。
+vector 重分配或销毁会使借用失效；修改元素但不使存储失效则会被视图观察到。
 
 ## 常见陷阱
 
-1. **`m[1, 2]` 不是二维下标**（未重载多参 [] 的类型）：
-   逗号表达式取后者——`m[2]`！C++23 起编译器警告
-   （-Wcomma-subscript）；mdspan 用 `m(1, 2)` 避开百年老坑
-2. 越界 `m(5, 0)` 是 UB 不是异常——形状自管（对照 span 陷阱）
-3. 行主序数据配 `layout_left` 视图：读出来是转置——
-   布局声明必须与真实存储一致，错了不报、只错值
-4. mdspan 不延长底层生命期：临时 vector 的 data() 存进 mdspan
-   = 经典悬垂（同第 37 课 span 的右值规则）
-5. 静态 extents 与实际形状不符：构造时即 UB——
-   静态形状只用于"编译期就有保证"的场合
-6. 以为 mdspan 是容器：它没有 push_back/resize——
-   形状是视图属性，改形状=新建视图
+1. `m(r, c)` 不是标准 mdspan 下标；用 `m[r, c]`。
+2. `extents<2, 3>`、`dextents<2>` 少了索引类型，不能编译。
+3. 只把视图声明为 const 不会把元素变成 const。
+4. 静态 extent 与构造参数冲突可能违反前置条件；底层存储不足也不会自动得到异常。
+5. `size()` 不总等于需要分配的连续存储跨度；子块和带间隙的布局尤其要注意。
+6. 教学类不覆盖完整标准约束、静态 extents、自定义访问器和全部构造重载，不能据此承诺零成本迁移。
 
 ## 完整示例
-
-见 `55_mdspan.cpp`（含手写 MdView 与本机可用性说明），按
-① 原理验证 → ② 语法演示 → ③ 应用实战 三段组织：
 
 ```bash
 g++ -std=c++23 -Wall -Wextra "CPP23/55_std_mdspan多维数组视图/55_mdspan.cpp" -o run && ./run
 ```
 
+程序会打印 `backend=...`，标明当前测试的是标准类型还是教学类。
+本机 MSVC 19.44 的标准类型路径也可使用 `/std:c++latest /utf-8 /EHsc` 编译验证。
+
 ## 练习
 
-1. 给 MdView 加 `layout_left` 模板开关（或第二个类），
-   同一块数据两种视图互相验证：`left(r,c) == right(c,r)`。
-2. 扩展 MdView 到三维（深度×行×列），写一个"逐层求和"。
-3. 把手写版换成 `std::mdspan` 的等价代码写进注释，
-   待本机标准库支持后解开验证（迁移练习）。
-4. 写 `submdspan` 手写版：参数为 (view, 行区间, 列区间)，
-   返回新的 MdView——注意行区间非零起点时的指针偏移。
+1. 用 2×3 right 和 3×2 left 视图验证转置下标对应，写穿后检查同一底层元素。
+2. 取跨多行的非完整列子块，检查步长与逻辑元素数量。
+3. 对比 const 视图与 const 元素；保留只读元素赋值为预期编译失败测试。
+4. 在支持标准库上测试静态/动态混合 extents，避免运行越界或悬垂代码。
 
 ## 参考
 
-- 提案 P0009R18（mdspan）/ P2630R4（submdspan）
-- cppreference: [std::mdspan](https://zh.cppreference.com/w/cpp/container/mdspan)
-- Kokkos mdspan 参考实现（github.com/kokkos/mdspan）
+- [C++23 草案：多维访问类型与布局](https://timsong-cpp.github.io/cppwp/n4950/views.multidim)
+- [C++23 草案：mdspan 元素访问](https://timsong-cpp.github.io/cppwp/n4950/mdspan.mdspan.members)
+- [P2630R4：从 C++23 mdspan 分离的 submdspan](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2630r4.html)

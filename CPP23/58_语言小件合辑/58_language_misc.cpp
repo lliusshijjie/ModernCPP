@@ -1,94 +1,76 @@
-// 第 58 课示例：语言小件合辑：if consteval、static operator()、多维下标（C++23）
-//
-// 结构：① 原理验证 —— if consteval 双路径；立即对象 static operator()
-//       ② 语法演示 —— 多维 operator[]；与逗号陷阱的对照
-//       ③ 应用实战 —— 编译期/运行期双优的算法 + 立即可调用对象
-//
-// 本机（MSYS2 g++ 15.1.0）编译运行——注意链接 -lstdc++exp：
-//   g++ -std=c++23 -Wall -Wextra 58_language_misc.cpp -o run -lstdc++exp && ./run
-// 先预测每行输出，再运行对照！
-
-#include <cmath>
+// 第 58 课：if consteval、static operator()、多维 operator[]（C++23）
+// g++ -std=c++23 -Wall -Wextra 58_language_misc.cpp -o run -lstdc++exp && ./run
+#include <bit>
+#include <cstddef>
 #include <print>
 #include <type_traits>
 
-// ① if consteval：编译期/运行期双路径（is_constant_evaluated 的语法化）
-constexpr double safe_sqrt(double x) {
-    if consteval {                       // 常量求值语境（编译期）
-        return x < 1.0 ? 0.0 : 1.0;      // 编译期保守路径（示意：不依赖 libm）
-    } else {                             // 运行期
-        return std::sqrt(x);             // libm 快路径
+// 两条路径计算相同的结果。popcount 本身从 C++20 起就能 constexpr，
+// 此处手写分支仅用于展示分派；不是说必须为 popcount 另写编译期实现。
+constexpr int count_bits(unsigned x) {
+    if consteval {
+        int count = 0;
+        while (x != 0) {
+            count += static_cast<int>(x & 1u);
+            x >>= 1;
+        }
+        return count;
+    } else {
+        return std::popcount(x);
     }
 }
 
-// ① static operator()：无状态的立即可调用对象
-struct Square {
-    static int op(int x) { return x * x; }
-    static constexpr double operator()(double x) { return x * x; }  // C++23
-};
+consteval unsigned immediate_plus_one(unsigned x) { return x + 1; }
+constexpr unsigned plus_one(unsigned x) {
+    if consteval {
+        // 真分支是 immediate function context，允许参数 x 传给 consteval 函数。
+        return immediate_plus_one(x);
+    } else {
+        return x + 1;
+    }
+}
 
-// ② 多维 operator[]：矩阵不必再装 pair/逗号
+struct Square {
+    static constexpr double operator()(double x) { return x * x; }
+};
+static_assert(std::is_same_v<decltype(&Square::operator()), double(*)(double)>);
+
 struct Mat2x2 {
     double m[4] = {1, 2, 3, 4};
+    // 本例不查边界；重载本身完全可以加入检查并抛出异常。
     double& operator[](std::size_t r, std::size_t c) { return m[r * 2 + c]; }
-    const double& operator[](std::size_t r, std::size_t c) const {
-        return m[r * 2 + c];
-    }
+    const double& operator[](std::size_t r, std::size_t c) const { return m[r * 2 + c]; }
 };
 
 int main() {
     std::print("===== 1. PRINCIPLES =====\n");
+    static_assert(count_bits(11u) == 3);
+    std::print("{} {}\n", count_bits(11u), count_bits(15u)); // 3 4：普通调用走运行期分支
+    static_assert(plus_one(41) == 42);
+    std::print("{}\n", plus_one(41));                       // 42
+    // 普通 if (std::is_constant_evaluated()) 也合法，但不创建立即函数上下文。
+    // if constexpr (std::is_constant_evaluated()) 的条件恒为 true，是另一回事。
 
-    // 验证 1：双路径——编译期与运行期各走各的
-    static_assert(safe_sqrt(0.25) == 0.0);       // 编译期：保守路径给 0
-    std::print("{} {}\n", safe_sqrt(0.25),       // 0.5（运行期：libm）
-                safe_sqrt(4.0));                  // 2
-
-    // 对照旧写法：if (std::is_constant_evaluated())——C++20 的库函数版
-    // （if consteval 是它的语法化升级：误用场景更少、分支可直接用编译期设施）
-
-    // 验证 2：static operator()——函数对象无 this
     Square s{};
-    std::print("{} {} {}\n", s(1.5), Square{}(2.5),  // 2.25 6.25（两种调用）
-                s.op(3));                            // 9（普通静态成员）
+    std::print("{} {}\n", s(1.5), Square{}(2.5));           // 2.25 6.25
+    // static 不意味着 consteval；普通非 static operator() 也早就能 constexpr。
 
     std::print("===== 2. SYNTAX =====\n");
-
-    // 2.1 多维下标：语义直接
     Mat2x2 a;
-    a[1, 0] = 30;                                   // 第 1 行第 0 列
-    std::print("{} {} {}\n", a[0, 0], a[1, 0], a[1, 1]);   // 1 30 4
-
-    // 2.2 老代码的逗号陷阱仍在：原生数组/未重载类型的 m[1,0] 是 m[0]
+    a[1, 0] = 30;
+    std::print("{} {} {}\n", a[0, 0], a[1, 0], a[1, 1]);  // 1 30 4
     double raw[4] = {1, 2, 3, 4};
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcomma-subscript"
-    std::print("{}\n", raw[1, 2]);                  // 3（= raw[2]！不是"行1列2"）
-#pragma GCC diagnostic pop
-    // 逗号表达式取后者：raw[(1, 2)] = raw[2]。多维 [] 只对重载了
-    // 多参 operator[] 的类型（如 Mat2x2）生效；C++23 起编译器对
-    // "顶层逗号下标"发警告（-Wcomma-subscript）敦促清理
-
-    // 2.3 static operator() 与 constexpr/模板的组合
-    static_assert(Square{}(3.0) == 9.0);            // 编译期调用立即可调用对象
+    // raw[1, 2] 在标准 C++23 中不合法：内建下标只接收一个参数。
+    // 更早版本的逗号表达式要保留含义可显式写 raw[(left, right)]，但通常应改成：
+    std::print("{}\n", raw[2]);                             // 3
+    static_assert(Square{}(3.0) == 9.0);
     std::print("static assert ok\n");
 
     std::print("===== 3. APPLICATION =====\n");
-
-    // 3.1 立即可调用对象做定制点（模板形参当策略，不用函数指针）
-    struct ByTwice {
-        static int operator()(int x) { return x * 2; }
-    };
-    struct BySquare {
-        static int operator()(int x) { return x * x; }
-    };
-    auto apply = [](auto op, int v) { return op(v); };      // 值传"策略对象"
-    std::print("{} {}\n", apply(ByTwice{}, 21),     // 42
-                apply(BySquare{}, 5));              // 25
-
-    // 3.2 双路径实战心法（对照 ①②③）：
-    //   is_constant_evaluated 时代结束——新代码一律 if consteval
-    //   零状态函数对象加 static：更明确、可 constexpr、无 this 开销
-    //   多维下标配上 -Wcomma-subscript 清理，老坑不再新踩
+    struct ByTwice { static int operator()(int x) { return x * 2; } };
+    struct BySquare { static int operator()(int x) { return x * x; } };
+    auto apply = [](auto op, int v) { return op(v); };
+    std::print("{} {}\n", apply(ByTwice{}, 21), apply(BySquare{}, 5)); // 42 25
+    // static 调用没有隐式对象参数；obj 表达式仍会求值，不保证比非 static 更快。
     return 0;
 }

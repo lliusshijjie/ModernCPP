@@ -9,15 +9,15 @@
 // 先预测每行输出，再运行对照！
 
 #include <functional>   // std::move_only_function
-#include <iostream>
 #include <memory>
 #include <print>
 #include <stacktrace>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-// ③ 可移动任务队列：任务持有独占资源（function 做不到）
+// ③ 可移动任务队列：任务直接持有独占资源（不能直接存入 std::function）
 class TaskQueue {
 public:
     void push(std::move_only_function<int()> t) {
@@ -45,7 +45,7 @@ int main() {
 
     // 验证 1：contains / starts_with / ends_with（string 与 string_view 都有）
     std::string url = "https://zh.cppreference.com";
-    std::string_view tail = url.substr(8);           // "zh.cppreference.com"
+    std::string_view tail = std::string_view{url}.substr(8);           // "zh.cppreference.com"
     std::println("{} {} {}", url.contains("reference"),
                  url.starts_with("https"), url.ends_with("com"));
     // true true true
@@ -73,13 +73,13 @@ int main() {
     std::println("{}", static_cast<bool>(load));     // false
     load = nullptr;                                  // 再置空：合法（幂等）
 
-    // 2.2 栈回溯：current 抓 N 层；to_string 全量描述
-    auto st = std::stacktrace::current();            // 此处抓 main 一层（+内部帧）
-    std::println("frames>0: {}", st.size() > 0);     // true
-    std::println("desc>0: {}", !std::to_string(st).empty());   // true
+    // 2.2 栈回溯：current 抓当前线程的调用路径；允许结果为空
+    auto st = std::stacktrace::current();            // 帧数与内联、优化、平台和捕获是否成功有关
+    std::println("frames>0: {}", st.size() > 0);     // 本机通常 true，不是标准保证
+    std::println("desc>0: {}", !std::to_string(st).empty());   // 结果依平台而定
     // ⚠ 本机（MinGW 原生）符号信息有限：description() 可能只给
     //   内部符号名（实测某帧为 register_frame_ctor）甚至空串；
-    //   Linux(libbacktrace)/MSVC 下函数名与行号更完整——如实看待
+    //   其他平台也依赖调试符号、优化与部署配置，不保证函数名/行号齐全
 
     std::print("===== 3. APPLICATION =====\n");
 
@@ -91,11 +91,11 @@ int main() {
     std::println("sum={}", q.run_all());             // sum=122
 
     // 3.2 出错点带现场：boom 内部抓栈（只打印布尔结论，符号贫乏如实规避）
-    (void)boom(5);                                   // frames>0: true
+    (void)boom(5);                                   // 帧数可能为 0
 
     // 3.3 实战心法（对照 ①②③）：
-    //   子串判断一律 contains/starts_with/ends_with——find!=npos 退役
-    //   回调要捕获独占资源/大缓冲 → move_only_function
+    //   只需布尔子串查询用 contains；需要位置仍用 find
+    //   需要保存独占资源或限定调用 cv/ref/noexcept → move_only_function
     //   诊断信息入口 current()；符号质量看平台，别依赖行号必在
     return 0;
 }

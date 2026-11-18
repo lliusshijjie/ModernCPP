@@ -12,9 +12,13 @@
 #include <flat_map>
 #include <flat_set>
 #include <functional>   // std::less
+#include <initializer_list>
 #include <iterator>
 #include <print>
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 int main() {
@@ -28,7 +32,7 @@ int main() {
     for (const auto& [k, v] : fm) std::print("{}={} ", k, v);
     std::println("| sorted");                          // apple=1 banana=2 cherry=3
 
-    // 验证 2：接口与 map 对齐——查找/计数/包含，迁移零成本
+    // 验证 2：常用查询与 map 相近——迁移仍须检查引用/失效/提取接口
     std::print("{} {} {}\n", fm.contains("apple"),
                 fm.find("zzz") == fm.end(), fm.size()); // true true 3
 
@@ -40,7 +44,7 @@ int main() {
 
     std::print("===== 2. SYNTAX =====\n");
 
-    // 2.1 批量构建：排序区间直接"搬进去"（省逐个插入的搬移）
+    // 2.1 普通区间构造：允许未排序输入；这里从左值元素复制后排序去重
     std::vector<std::pair<int, std::string>> raw{{3, "c"}, {1, "a"}, {2, "b"}};
     std::flat_map<int, std::string> built(raw.begin(), raw.end());
     std::print("{} {}\n", built.at(2), built.size());   // b 3
@@ -58,10 +62,12 @@ int main() {
     static_assert(std::random_access_iterator<
                   std::flat_set<int>::iterator>);
     std::print("both RA ok\n");
-    // 注意（本机实测）：flat_set 的旧式 iterator_category 标签是
-    // random_access_iterator_tag；flat_map 因键值分离的代理引用，
-    // 旧式标签降级（非 RA tag）——用 C++20 概念分发的新代码不受影响，
-    // 用旧标签特化的老代码（如 std::advance 重载）要留意
+    // flat_map 的代理引用不能满足旧式 ForwardIterator 的真引用要求，
+    // libstdc++ 旧式标签是 input_iterator_tag；flat_set 本机标签是 RA。
+    // RA 仅说明遍历能力；键只读，ranges::sort(fm) 仍不合法。
+    static_assert(!std::sortable<std::flat_map<int, int>::iterator>);
+    static_assert(std::is_same_v<std::flat_map<int, int>::reference,
+                                std::pair<const int&, int&>>);
 
     // 2.4 指定比较器与比较对象类型（透明比较器，对照第 05A 补充课）
     std::flat_set<std::string, std::greater<>> desc{"b", "a", "c"};
@@ -87,8 +93,18 @@ int main() {
     std::size_t after_erase = http.size();              // 5
     http.insert_or_assign(505, "teapot");
     std::print("{} {}\n", after_erase, http.size());    // 5 6
-    // insert_or_assign / try_emplace / extract 语义同 map（对照第 30 课）
-    // ——但没有节点句柄：底层是数组，搬节点无从谈起
+    // extract 存在，但它取走整批底层容器，接口是右值限定的 extract() &&。
+    // 与 map.extract(key) 返回单个节点句柄不同。
+    auto storage = std::move(built).extract();
+    std::print("extracted={} empty={}\n", storage.keys.size(), built.empty()); // 3 true
+    built.replace(std::move(storage.keys), std::move(storage.values));
+    std::print("restored={}\n", built.at(2));         // b
+    // replace 的前提：keys 有序且唯一，keys/values 长度相等。
+    std::flat_set<int> ready(std::sorted_unique, std::vector<int>{1, 3, 5});
+    std::print("ready={}\n", ready.size());          // 3：调用方保证已排序去重
+    // 本机 15.1 的 erase_if 是隐藏友元，用 ADL；谓词兼容 pair 与内部 zip tuple。
+    auto dropped = erase_if(http, [](const auto& entry) { return std::get<0>(entry) == 505; });
+    std::print("erase_if={} remaining={}\n", dropped, http.size()); // 1 5
 
     // 3.3 实战心法（对照 ①②③）：
     //   读多写少、批量构建、区间扫描 -> flat 系

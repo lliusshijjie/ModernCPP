@@ -1,120 +1,104 @@
 # 第 54 课 · std::generator 与惰性序列（C++23）
 
-> 所需标准：**C++23**（`-std=c++23`；本机 g++ 15.1.0 需链接
-> `-lstdc++exp`，同第 49 课起全系列）｜ 讲解：本文件 ｜ 独立代码：`54_generator.cpp`
-> 前置：第 39 课（协程入门——本课是它手写 Gen 的"官方转正版"）；
-> 第 33 课（视图的惰性哲学）
+> 标准：C++23；本机 MSYS2 GCC 15.1.0 示例链接 `-lstdc++exp`。
+> 讲解：本文件；代码：`54_generator.cpp`。
+> 前置：第 39 课协程机制、第 33～34 课视图。
 
 ## 一、底层原理
 
-### 1.1 第 39 课的六件套，标准库替你写完了
+### 1.1 标准生成器负责句柄与恢复
 
-第 39 课手写生成器要 promise 六件套 + RAII 句柄 + next()——
-那是学习协程机制的学费。C++23（P2502，源自 cppcoro）给出
-**std::generator**：同样基于协程，但开箱即用：
+`std::generator` 是同步协程生成器。调用生成函数取得一个拥有协程帧的对象，
+`begin()` 启动函数体，迭代器递增恢复执行，`co_yield` 把下一个元素交给消费者。
+它管理 promise、句柄和销毁，适合逐步产生数据以及递归遍历。
 
-| | 第 39 课手写 Gen | std::generator |
-|---|---|---|
-| promise/句柄/析构 | 自己写（约 60 行） | 库内完成 |
-| 消费方式 | next()/done() 手动拉 | **range-for / 接视图管道** |
-| 产出引用 | 另设成员存值 | `generator<const T&>` 模板参声明 |
-| 组合递归 | 手动内层循环 | **`co_yield elements_of(子生成器)`** |
+它满足 `view`、`input_range`，不可拷贝、可以移动；不满足 `forward_range`。
+可以接 `views::filter/take/transform`，但不能交给要求可排序随机访问范围的 `ranges::sort`。
+视图本身也可以保存状态，例如 `iota_view`、带缓存的 `filter_view`；
+不能把两者划成“视图无状态、生成器有状态”。生成器的优势是用普通控制流表达跨元素状态。
 
-### 1.2 惰性序列的两种实现，终成一家
+### 1.2 惰性从函数体开始，不代表调用零成本
 
-第 33/34 课的视图是**无状态变换**（filter/transform 只能逐元素改形）；
-生成器是**有状态推拉**（递推变量、跨元素记忆住在协程帧里）。
-C++23 里两者打通：**generator 本身是 view**——可以直接
-`gen | views::take(n) | ...`（示例 ①），"复杂状态源头"与
-"轻量加工管道"自由拼接。
+生成函数的函数体在首次恢复之前不执行，但调用时仍会准备帧、复制/移动按值参数、
+构造 promise；帧分配可能失败，也可能被优化掉。生成器不自动启动线程、异步 I/O 或调度器。
+`std::generator` 的 promise 不允许一般的显式 `co_await`；它不是异步任务类型。
 
-### 1.3 elements_of：递归生成的委托语法
+### 1.3 elements_of 委托
 
-树的深度优先遍历要"父节点值 + 各子树序列"拼接——旧协程要手写
-内层循环。`co_yield std::ranges::elements_of(sub)` 把子生成器
-（或任意区间）的元素**逐个转交**给消费者，递归结构一气呵成
-（示例 ③）。标准还允许在委托时**切换分配器/执行上下文**
-（`elements_of(sub, alloc)`，进阶不展开）。
+```cpp
+std::generator<const int&> walk(const Node& n) {
+    co_yield n.value;                         // n.value 是左值，引用树中的元素
+    for (const auto& k : n.kids)
+        co_yield std::ranges::elements_of(walk(*k));
+}
+```
+
+`elements_of` 可以委托兼容的输入范围，包括另一个生成器。
+适用条件是范围引用可转换为外层的 `yielded` 类型，不是所有范围都无条件接受。
+例如外层 `generator<int>` 的引用类型是 `int&&`，普通 `vector<int>&` 的 `int&`
+不能直接转换过去；可以改用外层 `generator<const int&>`，或明确使用移动视图。
+第二个参数是分配器，影响通用范围包装协程的帧分配，不用于切换执行上下文。
+委托保留递归状态，仍有协程帧和深度成本，不保证任意深度都安全。
 
 ## 二、具体语法
 
 ```cpp
 #include <generator>
+#include <ranges>
 
-std::generator<int> fib() {                 // 无穷序列
-    int a = 0, b = 1;
-    while (true) {
-        co_yield a;                         // 挂起并留值
-        auto next = a + b; a = b; b = next;
-    }
+std::generator<int> small() {
+    co_yield 1;
+    co_yield 2;
 }
-
-for (int x : fib() | std::views::take(8))   // 生成器接视图管道
-    std::print("{} ", x);                   // 0 1 1 2 3 5 8 13
-
-std::generator<const T&> walk(const Node& n) {   // 产出引用版
-    co_yield n.value;                       // co_yield 右值 → 存值返回引用
-    for (const auto& k : n.kids)
-        co_yield std::ranges::elements_of(walk(*k));  // 委托子生成器
-}
+for (int x : small() | std::views::take(2)) { /* 使用 x */ }
 ```
 
-规则细则：
+常用类型的区别：
 
-- 默认 `generator<T>` 按值产出；`generator<const T&>` 产出引用
-  （不拷贝元素）；`generator<T&&>` 产出可移动引用
-- generator 是**输入范围**（input_range）：单趟、只能前进——
-  不能 sort/随机访问；多趟消费先落地（第 53 课）
-- 移动即转移所有权；拷贝被删除（协程帧唯一持有）
-- 生命周期：generator 析构销毁协程帧；迭代中途析构安全
-  （第 39 课 RAII 语义的官方版）
-- `elements_of` 接受任何区间（容器、视图、另一个 generator）
-- 编译期仍是协程：`co_yield` 函数不能是 constexpr/构造/析构
-  （第 39 课的限制原样有效）
+| 类型 | `range_value_t` | `range_reference_t` | 常见用途 |
+|---|---|---|---|
+| `generator<T>` | `T` | `T&&` | 值序列，也能移出元素 |
+| `generator<T&>` | `T` | `T&` | 借用可写对象 |
+| `generator<const T&>` | `T` | `const T&` | 借用只读对象 |
+
+`generator<T>` 不等于“每步必定一次拷贝”：yield 左值时可能先复制到挂起期间的存储，
+yield 右值与消费者是否按值接收也会影响复制/移动次数。引用产出避免对应的元素复制，
+但不免除帧分配和生命周期责任；第二个模板参数还可单独指定值类型。
+
+同一生成器的 `begin()` 只能调用一次，即使前一次只消费一部分。移动后，
+已有迭代器指向接收帧的新对象；不要对移出后的对象调用 `begin()`。
+多次遍历应重新调用生成函数，或先用 `ranges::to` 保存结果。
 
 ## 三、实际应用与最佳实践
 
-### 3.1 场景：有状态的序列源（示例 ①/②）
+示例包含可表示的斐波那契前缀、游程解码与树的深度优先遍历。
+斐波那契在加法前检查 `uint64_t` 上界；固定宽度整数不能无界地产生数学整数序列。
+`take(n)` 限制消费者取得的数量，不保证源不会为了递增而计算后续元素。
 
-斐波那契、游程编码解码、分页 API 迭代（每页拉取后 yield 一条）——
-"序列规则复杂到视图写不出"时的正解：状态住帧里，消费者按需拉。
+解码格式为重复的“十进制次数 + 一个非数字字符”，例如 `3a2b` 产生 `aaabb`；
+空输入和零次数合法，缺次数、末尾只剩数字分别报错，次数溢出抛 `length_error`。
+解析在迭代时进行，消费者可能先收到合法前缀，随后才遇到错误。
 
-### 3.2 场景：递归结构遍历（示例 ③）
+代码按值接收 `std::string`，把数据保留在帧里。若写成 `const std::string&`，
+先 `auto g = rle_decode("2x");` 再迭代时，临时字符串已在声明语句结束时销毁。
+直接写在 range-for 初始化表达式中的引用实参临时对象，在符合 C++23 新规则的实现上可能
+被延长至循环结束；这一规则不覆盖先前语句中的临时对象，也不挽救被调用函数内已销毁的对象。
+按值持有使接口不依赖这些调用位置差异。
 
-文件树、JSON、AST 的深度优先展开：每个节点一个 co_yield 值 +
-对子节点的 elements_of 委托——递归深度由数据决定，代码无显式栈。
-
-### 3.3 最佳实践清单
-
-1. 无状态变换用视图（第 33 课）、有状态生成用 generator——
-   管道左端放 generator、右端放视图
-2. 大对象产出用 `generator<const T&>` 免拷贝
-3. 递归遍历首选 elements_of，别手写内层 for 拼接
-4. generator 单趟：要二次消费就接 `ranges::to` 落地（第 53 课）
-5. 协程帧里别锁跨 yield（第 39 课铁律延续）
+树遍历借用 `Node`，消费结束之前树必须存在，且不能进行使所借用对象失效的修改。
+帧内局部变量可跨挂起生存，但引用只在对象仍存在时有效；递增、生成器析构或恢复后的
+局部变量变化都可能使保存的引用失效。不要让锁跨 `co_yield` 长期占用。
 
 ## 常见陷阱
 
-1. **对同一 generator 二次 range-for**：不是空输出，是**未定义行为**
-   ——begin() 的前置条件（尚未启动）已被破坏；libstdc++ 实测直接
-   断言中止（Assertion `!_M_began` failed）。再消费 = 重新调用生成
-   函数，或落地成容器
-2. `generator<T>` 按值存：yield 大对象每步一次拷贝——
-   要引用就写 `generator<const T&>`
-3. generator 保存的是**协程帧**：返回 generator 的函数里，
-   co_yield 引用的局部变量安全（住在帧里）；但**捕获局部容器再
-   返回的 lambda** 生成器照旧悬垂（第 33 课视图悬垂的同族问题）
-4. elements_of 的子生成器类型必须与外层**产出类型兼容**
-  （`generator<const int&>` 委托 `generator<int>` 可以，
-   反向引用/值不匹配编译错）
-5. 把 generator 传给需要 forward_range 的接口（sort/去重）：
-   编译错——它是 input_range，能力边界先看清
-6. 忘记惰性：定义了 generator 不消费，任何代码都不会执行——
-   "调用了没效果"九成是没迭代
+1. 二次 range-for 违反 `begin()` 前置条件，行为未定义；断言是否触发取决于实现与构建配置。
+2. 捕获局部变量的协程 lambda 可能依赖已销毁的闭包；优先用按值参数明确保存所需对象。
+3. 未迭代时函数体没执行，不能据此断言“调用没有分配、没有构造、不会抛异常”。
+4. yield 引用不延长外部对象寿命；保存元素引用之后再恢复协程时要重新检查有效性。
+5. 函数体异常可从 `begin()` 或迭代器递增传播，不能只在创建生成器时捕获。
+6. 提前退出循环后，帧通常保留到拥有它的生成器析构；析构会销毁局部对象及委托的生成器。
 
 ## 完整示例
-
-见 `54_generator.cpp`，按 ① 原理验证 → ② 语法演示 → ③ 应用实战 三段组织：
 
 ```bash
 g++ -std=c++23 -Wall -Wextra "CPP23/54_std_generator与惰性序列/54_generator.cpp" -o run -lstdc++exp && ./run
@@ -122,17 +106,12 @@ g++ -std=c++23 -Wall -Wextra "CPP23/54_std_generator与惰性序列/54_generator
 
 ## 练习
 
-1. 写 `generator<char> run_length_decode(string_view "3a2b")`，
-   与第 34 课视图版对比状态管理方式。
-2. 用 `generator<const T&>` 遍历二叉搜索树**中序**（左-根-右），
-   验证输出有序——elements_of 的委托顺序即遍历顺序。
-3. 把第 39 课练习的 `range(a, b)` 换成 std::generator 实现，
-   测量删掉的行数；再对比两者迭代器的类型（input vs 你手写的）。
-4. 陷阱复现：对已耗尽的 generator 再 range-for，确认空输出；
-   再用 `| ranges::to<std::vector>()` 落地后二次消费。
+1. 验证解码空输入、`0a2b`、`a`、`12` 与超大次数，区分创建和迭代时抛异常。
+2. 用 `generator<const int&>` 实现二叉搜索树中序遍历，明确树的生命周期。
+3. 统计 `generator<T>` yield 左值/右值及消费者复制/移动的次数。
+4. 阅读二次 `begin()` 的前置条件，保留误用为注释；将结果落地后安全地遍历两次，不运行 UB。
 
 ## 参考
 
-- 提案 P2502R2（std::generator）
-- cppreference: [std::generator](https://zh.cppreference.com/w/cpp/utility/generator)
-- cppreference: [std::ranges::elements_of](https://zh.cppreference.com/w/cpp/ranges/elements_of)
+- [C++23 草案：generator 类型与成员](https://timsong-cpp.github.io/cppwp/n4950/coro.generator)
+- [C++23 草案：yield_value 与委托约束](https://timsong-cpp.github.io/cppwp/n4950/coro.generator.promise)
