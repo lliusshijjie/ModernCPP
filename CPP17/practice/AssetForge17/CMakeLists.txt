@@ -1,0 +1,46 @@
+cmake_minimum_required(VERSION 3.16)
+project(AssetForge17 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+find_package(Threads REQUIRED)
+find_package(TBB QUIET)
+
+add_library(assetforge_core
+    src/manifest.cpp src/planner.cpp src/workspace.cpp
+    src/io.cpp src/bundle.cpp src/builder.cpp src/report.cpp)
+target_include_directories(assetforge_core PUBLIC include)
+target_link_libraries(assetforge_core PUBLIC Threads::Threads)
+if(TARGET TBB::tbb)
+    target_link_libraries(assetforge_core PRIVATE TBB::tbb)
+endif()
+
+add_executable(assetforge src/main.cpp)
+target_link_libraries(assetforge PRIVATE assetforge_core)
+if(MINGW)
+    target_link_options(assetforge PRIVATE -municode)
+endif()
+
+include(CTest)
+set(assetforge_targets assetforge_core assetforge)
+if(BUILD_TESTING)
+    add_executable(assetforge_tests tests/self_test.cpp tests/odr.cpp)
+    target_link_libraries(assetforge_tests PRIVATE assetforge_core)
+    list(APPEND assetforge_targets assetforge_tests)
+    foreach(group manifest bundle workspace)
+        add_test(NAME ${group} COMMAND assetforge_tests ${group})
+        set_tests_properties(${group} PROPERTIES TIMEOUT 30)
+    endforeach()
+    add_test(NAME cli COMMAND ${CMAKE_COMMAND}
+        -DAPP=$<TARGET_FILE:assetforge> -DSAMPLES=${CMAKE_CURRENT_SOURCE_DIR}/data
+        -DOUT=${CMAKE_CURRENT_BINARY_DIR}/cli-test -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli.cmake)
+    set_tests_properties(cli PROPERTIES TIMEOUT 30)
+endif()
+
+foreach(target IN LISTS assetforge_targets)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -pedantic-errors)
+    endif()
+endforeach()

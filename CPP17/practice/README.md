@@ -2,6 +2,7 @@
 
 | 练习 | 对应主线 | 内容 |
 |---|---|---|
+| [AssetForge17](AssetForge17/README.md) | 第 11～30 课，全部 20 个知识点 | 可复现资源包构建器，覆盖依赖图、二进制归档、并行校验及工作区 |
 | [BloomFilter17](BloomFilter17/README.md) | C++17 数据结构实战 | 高性能布隆过滤器：容量规划、批量操作、合并、统计、CRC32 快照与基准 |
 | [vending_machine.cpp](vending_machine.cpp) | 第 11～17 课，7 个知识点 | 迷你自动售货机：投入金额、购买商品、退回余额 |
 | [battle_simulator.cpp](battle_simulator.cpp) | 第 11～13 课，3 个知识点 | 骑士与法师的回合制战斗结算 |

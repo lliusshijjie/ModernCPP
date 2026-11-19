@@ -1,0 +1,3 @@
+data/scene/start.txt text eol=crlf
+data/config/theme.txt text eol=crlf
+data/art/logo.bin binary

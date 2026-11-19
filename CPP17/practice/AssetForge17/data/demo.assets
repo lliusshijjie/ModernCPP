@@ -1,0 +1,9 @@
+asset	ui.start	text-lf	scene/start.txt	128
+asset	ui.logo	raw	art/logo.bin	-
+asset	ui.theme	text-lf	config/theme.txt	-
+asset	ui.extra	raw	art/extra.txt	-
+requires	ui.start	ui.theme
+requires	ui.start	ui.logo
+alias	startup	ui.start
+profile	demo	ui.start
+profile	minimal	ui.logo
