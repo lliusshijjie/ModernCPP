@@ -139,3 +139,7 @@ g++ -std=c++20 -Wall -Wextra "CPP20/37_std_span/37_span_basics.cpp" -o run && ./
 - 提案 P0122R7（span）
 - cppreference: [std::span](https://zh.cppreference.com/w/cpp/container/span)
 - cppreference: [deduction guide（CTAD 推导）](https://zh.cppreference.com/w/cpp/container/span/deduction_guides)
+
+## 补充阅读
+
+[37A · 安全的整数比较与转换](../补充知识点/37_补充A_安全整数比较与转换/37_补充A_安全整数比较与转换.md)。在构造子视图之前，练习混合符号比较、长度窄化和协议边界检查。

@@ -150,3 +150,7 @@ g++ -std=c++20 -Wall -Wextra -pthread "CPP20/45_atomic等待与通知/45_atomic_
 - 提案 P1135R6（atomic 的等待与通知）
 - cppreference: [std::atomic::wait](https://zh.cppreference.com/w/cpp/atomic/atomic/wait)
 - cppreference: [std::atomic_notify_one](https://zh.cppreference.com/w/cpp/atomic/atomic_notify_one)
+
+## 补充阅读
+
+[45A · 原子智能指针与不可变配置快照](../补充知识点/45_补充A_原子智能指针与配置快照/45_补充A_原子智能指针与配置快照.md)。把原子操作应用到整个只读配置的发布，并观察旧版本的生命周期。

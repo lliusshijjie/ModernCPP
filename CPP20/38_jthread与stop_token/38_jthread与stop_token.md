@@ -140,3 +140,7 @@ g++ -std=c++20 -Wall -Wextra -pthread "CPP20/38_jthread与stop_token/38_jthread_
 - 提案 P0660R10（stop_token/jthread）
 - cppreference: [std::jthread](https://zh.cppreference.com/w/cpp/thread/jthread)
 - cppreference: [std::stop_callback](https://zh.cppreference.com/w/cpp/thread/stop_callback)
+
+## 补充阅读
+
+[38A · 线程协调与并发限额](../补充知识点/38_补充A_线程协调与并发限额/38_补充A_线程协调与并发限额.md)。接着练习多个线程的一次就绪、重复阶段与共享资源限额。

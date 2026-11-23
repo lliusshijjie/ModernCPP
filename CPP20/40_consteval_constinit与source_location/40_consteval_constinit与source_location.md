@@ -155,3 +155,7 @@ g++ -std=c++20 -Wall -Wextra "CPP20/40_consteval_constinit与source_location/40_
 - cppreference: [consteval](https://zh.cppreference.com/w/cpp/language/consteval)
 - cppreference: [constinit](https://zh.cppreference.com/w/cpp/language/constinit)
 - cppreference: [std::source_location](https://zh.cppreference.com/w/cpp/utility/source_location)
+
+## 补充阅读
+
+[40A · 常量求值与编译期、运行时双路径](../补充知识点/40_补充A_常量求值与双路径/40_补充A_常量求值与双路径.md)。练习在同一个 constexpr 接口中选择常量求值与运行时实现。

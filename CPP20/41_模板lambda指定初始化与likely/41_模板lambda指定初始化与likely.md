@@ -139,3 +139,7 @@ g++ -std=c++20 -Wall -Wextra "CPP20/41_模板lambda指定初始化与likely/41_l
   P0479R5（likely/unlikely）
 - cppreference: [指定初始化器](https://zh.cppreference.com/w/cpp/language/initialization#指定初始化器)
 - cppreference: [属性 likely](https://zh.cppreference.com/w/cpp/language/attributes/likely)
+
+## 补充阅读
+
+[41A · 结构化类类型作为非类型模板参数](../补充知识点/41_补充A_结构化类类型模板参数/41_补充A_结构化类类型模板参数.md)。从模板语法继续到类类型模板实参，用固定字符串标记字段。
